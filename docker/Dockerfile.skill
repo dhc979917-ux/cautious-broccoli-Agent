@@ -1,0 +1,132 @@
+# ============================================================================
+# TaskPilot 技能沙箱镜像（taskpilot-skill）
+#
+# 定位：Agent 执行任务的隔离环境。后端容器（agentscope 环境）通过
+# AgentScope DockerWorkspace 为每个会话起一个本镜像的兄弟容器，Agent 的
+# 全部 shell / 文件操作都在其中执行，pip install 只污染沙箱、会话结束即销毁。
+#
+# 构建：
+#   docker build -f docker/Dockerfile.skill -t taskpilot-skill:latest .
+#   （或 docker compose build skill-sandbox）
+#
+# ⚠️ 重建后必须再跑一次 `bash docker/rebuild_sandbox_image.sh`：
+# AgentScope 的 DockerWorkspace 不直接用本镜像，而是以它为 base 再构建一层派生
+# 镜像 agentscope-workspace:<hash> 并按 tag 缓存；那个 hash 不含基础镜像内容，
+# 所以只重建本镜像的话，沙箱会继续用旧派生镜像 —— 这里新装的依赖在沙箱里
+# 根本不存在，且不报错、只是静默缺件（实测踩过：OCR 依赖装好了沙箱里却 import 不到）。
+# 该脚本会清掉派生镜像缓存并预热重建（预热很重要，否则重建会阻塞第一个发起对话的用户）。
+#
+# 注意：
+# - 基础镜像走 daocloud 镜像源（服务器到 dockerhub 不通，与后端镜像一致）
+# - pip 统一走阿里云镜像源（含运行时 ENV，Agent 在沙箱内补装依赖同样生效）
+# - 后端侧的 agentscope 压缩中间件等依赖不进本镜像（那是项目环境的事）
+# ============================================================================
+FROM docker.m.daocloud.io/library/python:3.11-slim
+
+# 保护标签：Coolify 每日强制清理会跳过带 coolify.managed=true 的镜像，
+# 防止本基础镜像在凌晨无容器引用时被当"无主镜像"回收（回收后起沙箱 403）
+LABEL coolify.managed="true"
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    TZ=Asia/Shanghai \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/ \
+    UV_DEFAULT_INDEX=https://mirrors.aliyun.com/pypi/simple/
+
+# 系统依赖：
+# - LibreOffice（nogui 版，无头格式转换：pptx/docx/xlsx 互转、导出 PDF/图片）
+# - pandoc（万能文档格式转换）、poppler-utils（pdftoppm/pdfinfo）
+# - weasyprint 运行库（libpango/libpangocairo/libgdk-pixbuf/libcairo）
+# - fonts-noto-cjk（中日韩字体，保证中文渲染不乱码）、fonts-liberation
+# - curl/ca-certificates/git/ripgrep/unzip/zip（脚本与技能常用）
+# - nodejs/npm（docx-js 等 npm 系技能脚本）
+# 切换 apt 源到阿里云镜像（服务器到 deb.debian.org 慢，阿里云镜像快 3~4 倍）
+RUN sed -i 's|http://deb.debian.org|https://mirrors.aliyun.com|g; s|http://security.debian.org|https://mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources || true
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libreoffice-core-nogui \
+        libreoffice-writer-nogui \
+        libreoffice-impress-nogui \
+        libreoffice-calc-nogui \
+        pandoc \
+        poppler-utils \
+        libpango-1.0-0 \
+        libpangocairo-1.0-0 \
+        libgdk-pixbuf-2.0-0 \
+        libcairo2 \
+        fonts-noto-cjk \
+        fonts-liberation \
+        curl \
+        ca-certificates \
+        git \
+        ripgrep \
+        unzip \
+        zip \
+        nodejs \
+        npm \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+# Python 技能依赖（办公文档 / 数据分析 / PDF / 格式转换 / 云服务）
+# 说明：
+# - 该清单与"本地 sandbox conda 环境"保持一致（本地开发用）
+# - weasyprint 需系统侧 pango 库（上方已装）
+# - pdfkit 为 wkhtmltopdf 的 Python 封装；沙箱未装 wkhtmltopdf 二进制，
+#   PDF 生成优先用 fpdf2 / reportlab / weasyprint，pdfkit 仅作兜底安装
+# - pyhive 依赖 thrift（Hive 数据源）
+RUN pip install --no-cache-dir \
+        python-docx \
+        python-pptx \
+        openpyxl \
+        xlsxwriter \
+        pandas \
+        numpy \
+        scipy \
+        matplotlib \
+        Pillow \
+       fpdf2 \
+       reportlab \
+        pypdf \
+        pdfplumber \
+        pypdfium2 \
+       pdfkit \
+       weasyprint \
+        Markdown \
+        markdownify \
+        mammoth \
+        PyMuPDF \
+        lxml \
+        beautifulsoup4 \
+        cairosvg \
+        svglib \
+        uharfbuzz \
+        pyhive \
+        thrift \
+        requests \
+        alibabacloud_credentials \
+        alibabacloud_ecs20140526 \
+        alibabacloud_dataworks_public20240518 \
+        alibabacloud_green20220302 \
+        alibabacloud_tea_openapi \
+        alibabacloud_tea_util
+
+# OCR 能力（ocr 技能的本地离线路径）：RapidOCR = PP-OCR 模型 + onnxruntime，
+# 模型随 wheel 打包，装完即离线可用，不联网、不耗配额。
+#
+# 必须烤进镜像而不是让 Agent 运行时补装：实测沙箱内 pip install 这一组要 4 分钟以上，
+# 会把平台 Bash 工具的 10 分钟上限耗掉大半。
+#
+# 坑：rapidocr-onnxruntime 依赖 opencv-python（非 headless），它需要 libGL.so.1，
+# 而 slim 镜像没有该库，import cv2 会直接失败。这里装完立刻换成 headless 版
+# （提供同名 cv2 模块、不依赖 GUI 库），避免为此再拖一堆 X11/OpenGL 系统包。
+# libgomp1 由上面的 libreoffice/pango 依赖链带入，onnxruntime 需要它，已实测存在。
+RUN pip install --no-cache-dir rapidocr-onnxruntime \
+    && pip uninstall -y opencv-python \
+    && pip install --no-cache-dir opencv-python-headless \
+    && python -c "import cv2, onnxruntime; from rapidocr_onnxruntime import RapidOCR; RapidOCR(); print('ocr engine ok:', cv2.__version__, onnxruntime.__version__)"
+
+# 本镜像只作为 DockerWorkspace 的 base_image 使用，不直接运行
+CMD ["sleep", "infinity"]

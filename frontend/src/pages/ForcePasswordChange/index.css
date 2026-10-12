@@ -1,0 +1,7 @@
+.force-password-page { min-height: 100vh; display: grid; place-items: center; padding: 32px 20px; background: var(--bg-secondary); }
+.force-password-card { width: min(460px, 100%); border-radius: 18px; box-shadow: 0 18px 60px rgba(15, 23, 42, .12); }
+.force-password-logo { display: flex; justify-content: center; margin-bottom: 18px; }
+.force-password-icon { display: block; margin: 0 auto 12px; font-size: 42px; color: var(--color-primary); }
+.force-password-card h2, .force-password-card .ant-typography { text-align: center; }
+.force-password-card .ant-alert { margin: 20px 0; text-align: left; }
+.force-password-card .ant-form-item { text-align: left; }

@@ -1,0 +1,262 @@
+/* ========== 文件中心页面 ========== */
+.files-page {
+  min-height: 100vh;
+  padding: 40px;
+  position: relative;
+}
+
+/* ---------- 头部 ---------- */
+.files-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.files-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.files-icon-wrapper {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-lg);
+  background: var(--color-primary-bg);
+  border: 1px solid var(--color-primary-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary);
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.files-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-hero);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.files-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* ---------- 头部右侧：我的用量 ---------- */
+.files-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.files-usage {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+  padding: 10px 16px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+}
+
+.files-usage-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+/* ---------- 管理员全局统计条 ---------- */
+.files-stats-strip {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.files-stat-chip {
+  flex: 1;
+  min-width: 140px;
+  padding: 14px 20px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+}
+
+.files-stat-chip .stat-value {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-hero);
+}
+
+.files-stat-chip .stat-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* ---------- 表格卡片 ---------- */
+.files-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+}
+
+.files-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.files-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.files-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.files-batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  margin-bottom: 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-bg);
+  border: 1px solid var(--color-primary-border);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+/* ---------- 单元格 ---------- */
+/* 类名与 index.tsx 保持一致（此前 CSS 用 files-* 前缀、tsx 用 file-*，样式全部落空） */
+
+/* 表格内容整体居中：列上的 align="center" 只管 td 的 text-align，
+   单元格内的 flex 容器要自己居中 */
+.files-page .ant-table-cell {
+  text-align: center;
+}
+
+.file-name-cell {
+  display: flex;
+  align-items: center;
+  /* 文件名列内容靠左（表头仍居中）：列上的 align="center" 只管 td 的 text-align，
+     这里的 flex 容器自己决定内容起始位置 */
+  justify-content: flex-start;
+  text-align: left;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* 背景色与图标色由 tsx 按扩展名内联注入，这里只负责盒子尺寸 */
+.file-ext-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.file-name-text {
+  min-width: 0;
+  font-weight: var(--font-weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-source-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.file-source-cell .ant-tag {
+  margin-inline-end: 0;
+}
+
+/* 来源会话入口：用真实 button 保证键盘可达，样式重置成链接外观 */
+.file-source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-primary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.file-source-link:hover {
+  color: var(--color-primary-hover);
+  text-decoration: underline;
+}
+
+.file-source-link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.file-source-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 原会话已删除 / 无权查看：标题照常展示，置灰且不可点击（不是死链） */
+.file-source-link.is-disabled,
+.file-source-link.is-disabled:hover {
+  color: var(--text-tertiary);
+  text-decoration: none;
+  cursor: not-allowed;
+}
+
+.file-source-empty {
+  color: var(--text-tertiary);
+}
+
+.files-muted {
+  color: var(--text-tertiary);
+}
+
+/* ---------- 回收站行 ---------- */
+.files-trash-row .file-name-text {
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+}
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 768px) {
+  .files-page { padding: 20px; }
+  .files-header { flex-direction: column; }
+}

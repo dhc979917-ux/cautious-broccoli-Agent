@@ -1,0 +1,34 @@
+.platform-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  color: #005BBB;
+}
+
+.platform-logo__mark {
+  display: block;
+  width: 1em;
+  height: 1em;
+  flex: none;
+}
+
+.platform-logo__wordmark {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  white-space: nowrap;
+  font-size: 0.62em;
+}
+
+/* 深色背景上的白底小圆角块（保持与暗色主题的可读性） */
+.platform-logo--on-dark,
+[data-theme='dark'] .platform-logo:not(.platform-logo--brand) {
+  background: #fff;
+  border-radius: 6px;
+  padding: 0.22em 0.32em;
+  color: #005BBB;
+}
+
+.platform-logo--brand {
+  color: #005BBB;
+}

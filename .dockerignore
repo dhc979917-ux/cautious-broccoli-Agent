@@ -1,0 +1,16 @@
+# 前端构建上下文是仓库根目录，这里排除与构建无关的内容
+.git/
+backend/
+test/
+data/
+nginx/
+!nginx/nginx.conf
+**/node_modules/
+frontend/dist/
+*.log
+/tp.bundle
+/*.tar.gz
+/*.docx
+/*.png
+/测试/
+/trash/

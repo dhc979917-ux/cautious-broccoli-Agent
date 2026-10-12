@@ -1,0 +1,33 @@
+# 运行时数据（卷挂载，不进镜像）
+uploads/
+outputs/
+knowledge/
+traces/
+projects/
+user_management/
+memory/
+app.db
+vector.db
+
+# 密钥与本地配置
+.env
+.env.*
+!.env.prod.example
+
+# 日志与调试产物
+*.log
+_server*.log
+_srv*.log
+_e2e_v2_test.py
+_login.json
+_sess.json
+_tmp*
+_verify_plan_mcp.py
+
+# Python 缓存
+__pycache__/
+*.pyc
+**/__pycache__/
+
+# SSH source backups are not runtime code
+*.bak.*

@@ -1,0 +1,461 @@
+# ReME embedded app config (custom, passed via ReMeMiddleware(config=<this file>)).
+# Trimmed from reme default.yaml:
+#   - removed cron jobs (dream_cron / optimize_index_cron) — distillation & cleanup
+#     are driven by our backend janitor (app/agents/memory.py) instead
+#   - removed resource/digest watch loops and HTTP service (embedded mode never serves)
+#   - kept: auto_memory (per-turn write-back), search (hybrid retrieval), file CRUD jobs
+#     (used by the janitor and future memory-management UI), index_update_loop
+#     (keeps BM25/vector index in sync with file changes, incl. manual edits)
+#   - added: index_paths — on-demand index sync for cards written straight to disk
+#     (driven by app/agents/memory.py: sync_memory_index)
+#
+# NOTE: auto_memory_step's internal agent resolves its tools from this job table
+# (create: daily_write; update: read/edit/frontmatter_update/write; rename: move).
+# A missing job raises KeyError("Job '<name>' not found") and kills the whole
+# write-back, so daily_write / move must stay registered here.
+service:
+  backend: http
+  web_enabled: false
+
+language: zh
+timezone: Asia/Shanghai
+log_to_console: false
+log_to_file: false
+
+jobs:
+  index_update_loop:
+    backend: background
+    # Watch the whole vault instead of only daily_dir/digest_dir: root-level global
+    # cards (用户画像.md, written by the janitor and by WriteNote) must be reachable
+    # through memory_search. It is also a correctness requirement — init_changes_step
+    # computes to_delete = indexed - watched, so a card outside the watch scope that
+    # did get indexed would be evicted as "deleted" on the next start.
+    # watch_suffixes keeps runtime state out of the index: metadata/ (npz/pkl/zst),
+    # session/ and mem_session/ (jsonl) never match, so ReME's own index dumps cannot
+    # retrigger the watcher.
+    watch_dirs: ["."]
+    watch_suffixes: [md]
+    steps:
+      - backend: init_changes_step
+        monitor_type: file_store
+        monitor_name: default
+        dispatch_steps: [update_index_step]
+      - backend: watch_changes_step
+        dispatch_steps:
+          - backend: update_index_step
+            persist: False
+
+  # On-demand sync of explicit workspace-relative paths into the search index
+  # (chunks + BM25 + vectors), persisted right away. Callers pass `changes`;
+  # coalesce_changes re-derives added/modified/deleted from the on-disk state, so a
+  # path that vanished meanwhile is removed instead of erroring. Unlike
+  # init_changes_step this carries no whole-workspace delete semantics: it only ever
+  # touches the paths it is given.
+  index_paths:
+    backend: base
+    description: "Index explicit workspace-relative paths into the search index now."
+    parameters:
+      type: object
+      properties:
+        changes:
+          type: array
+          description: "entries of {change: added|modified|deleted, path: <workspace-relative>}"
+          default: []
+    steps:
+      - backend: update_index_step
+        persist: True
+
+  auto_memory:
+    backend: base
+    description: "Auto-memory: record conversation facts into a daily note"
+    parameters:
+      type: object
+      properties:
+        messages:
+          type: array
+          description: "messages"
+          items:
+            type: object
+        session_id:
+          type: string
+          description: "source conversation session identifier"
+          default: ""
+        memory_hint:
+          type: string
+          description: "optional hint"
+        date:
+          type: string
+          description: "YYYY-MM-DD daily note date; empty = infer from message timestamps or today"
+          default: ""
+      required:
+        - messages
+    steps:
+      - backend: auto_memory_step
+        # prompt_dict 叠加在包内模板上（BaseStep 原生支持）：只覆盖中文系统提示词，
+        # 把"用户创作的内容"纳入记录范围——否则诗歌/文章等创作被判定"不是事实"
+        # 不进 daily 卡，会话流水被 janitor 清理后原文就永久丢失。
+        prompt_dict:
+          system_prompt_zh: |
+            你是自动记忆系统。你的职责是将最近对话中的核心信息记录到日记记忆中。思考人类会从这段对话中自然地记住什么——不是所有内容，而是真正重要的信息。
+
+            ## 记录什么——像人类一样思考
+            从事实的角度想：哪些信息未来会有用，需要记下来？捕捉那些难以重新获取的信息：
+
+            - 关于用户的持久事实——他们是谁、怎么工作、想要什么
+            - 发生了什么事、做了什么决策、为什么——叙事线索
+            - 当前状态——进度、卡点、下一步——明天就会过时但今天很重要
+            - 可以直接复用的操作步骤或方案
+            - 用户创作的或要求创作的内容——诗歌、文章、故事、代码、点子等。这类内容必须记录，尽量保留完整原文，不要只记一句"写了一首诗"
+            - 你认为重要但不属于以上类别的信息——如果你觉得以后会用到，就记下来
+
+            要全面——每一条值得保留的事实都应出现。关键处逐字引用原始措辞或数字。
+
+            ## 正文格式
+
+            自由格式——用最适合内容的结构（标题、列表等）。唯一的硬性规则是**完整性**。
+
+            ## Frontmatter 规则
+
+            - `name` = 简洁、稳定的主题/事件文件名 stem，例如 `cold-remedies` 或 `project-kickoff-decision`。不要包含今天日期或日记目录日期；外层日记路径已经记录日期。对已有笔记，如果明显有更好的文件名，就更新它。
+            - `description` = 详细总结；模糊的描述如 "notes" / "misc" 不可接受。
+            - **永远不要设置 `status`**——它是下游处理保留的字段。
+
+            ## 全局信息卡（根目录卡片）
+            根目录卡片（如「用户专业背景.md」）用于记录用户全局、长期稳定的重要信息：身份、专业背景、偏好、习惯等。
+
+            ## 全局信息归并原则
+            - 关于用户的持久事实（身份、代号、专业背景、偏好等），优先更新已有的根目录主题卡，而不是每个问题新建一张卡。
+            - 记录前先用 list/read 查看是否已有同主题的根级卡片；如有，就在该卡片上追加或修订；仅当主题全新时才新建根卡。
+            - 每个主题至多保留一张全局卡；把分散、重复的事实合并进对应主题卡。
+            - 事件性、一次性信息仍写入当日卡片；只有长期有效的信息才进根目录全局卡。
+
+  search:
+    backend: base
+    description: "Hybrid workspace search (vector + BM25, RRF-fused)."
+    parameters:
+      type: object
+      properties:
+        query:
+          type: string
+          description: "search query"
+        limit:
+          type: integer
+          description: "max results"
+          default: 5
+        min_score:
+          type: number
+          description: "min fused score"
+          default: 0.0
+        start_date:
+          type: string
+          description: "optional inclusive start date filter (YYYY-MM-DD)"
+        end_date:
+          type: string
+          description: "optional inclusive end date filter (YYYY-MM-DD)"
+      required:
+        - query
+    steps:
+      - backend: search_step
+        vector_weight: 0.7
+        candidate_multiplier: 5.0
+        expand_links: true
+        max_links_per_direction: 10
+
+  list:
+    backend: base
+    description: "List files under a workspace path."
+    parameters:
+      type: object
+      properties:
+        path:
+          type: string
+          description: "workspace-relative dir; empty = root"
+          default: ""
+        recursive:
+          type: boolean
+          description: "recurse"
+          default: false
+        sort_by:
+          type: string
+          enum:
+            - mtime
+        extensions:
+          type: array
+          items:
+            type: string
+        limit:
+          type: integer
+          description: "max results"
+          default: 100
+    steps:
+      - backend: list_step
+
+  read:
+    backend: base
+    description: "Read a markdown file under the workspace."
+    parameters:
+      type: object
+      properties:
+        path:
+          type: string
+          description: "workspace-relative path; markdown only"
+        start_line:
+          type: integer
+        end_line:
+          type: integer
+      required:
+        - path
+    steps:
+      - backend: read_step
+        with_neighbors: false
+        max_neighbors_per_direction: 10
+
+  write:
+    backend: base
+    description: "Write a markdown file (create or overwrite) with name/description frontmatter."
+    parameters:
+      type: object
+      properties:
+        path:
+          type: string
+          description: "workspace-relative path; markdown only"
+        name:
+          type: string
+        description:
+          type: string
+        content:
+          type: string
+        metadata:
+          type: object
+      required:
+        - path
+        - name
+        - description
+        - content
+    steps:
+      - backend: write_step
+
+  edit:
+    backend: base
+    description: "Find-and-replace in a markdown file (all occurrences)."
+    parameters:
+      type: object
+      properties:
+        path:
+          type: string
+        old:
+          type: string
+        new:
+          type: string
+          default: ""
+      required:
+        - path
+        - old
+        - new
+    steps:
+      - backend: edit_step
+
+  delete:
+    backend: base
+    description: "Delete a workspace file or folder; returns surviving inbound wikilinks."
+    parameters:
+      type: object
+      properties:
+        path:
+          type: string
+          description: "workspace-relative path"
+      required:
+        - path
+    steps:
+      - backend: delete_step
+
+  stat:
+    backend: base
+    description: "Stat path (size, mtime, exists, is_dir, is_file)."
+    parameters:
+      type: object
+      properties:
+        path:
+          type: string
+      required:
+        - path
+    steps:
+      - backend: stat_step
+
+  daily_list:
+    backend: base
+    description: "List notes under a single day."
+    parameters:
+      type: object
+      properties:
+        date:
+          type: string
+          description: "YYYY-MM-DD; empty = today"
+          default: ""
+    steps:
+      - backend: daily_list_step
+
+  daily_write:
+    backend: base
+    description: "Write a daily markdown note with conversation source frontmatter."
+    parameters:
+      type: object
+      properties:
+        name:
+          type: string
+          description: "daily note filename stem and frontmatter name"
+        description:
+          type: string
+          description: "frontmatter description"
+        session_id:
+          type: string
+          description: "source conversation session identifier"
+        content:
+          type: string
+          description: "body"
+        date:
+          type: string
+          description: "YYYY-MM-DD daily note date; empty = today"
+          default: ""
+        metadata:
+          type: object
+          description: "Optional extra frontmatter fields."
+      required:
+        - name
+        - description
+        - session_id
+        - content
+    steps:
+      - backend: daily_write_step
+
+  move:
+    backend: base
+    description: "Move / rename a workspace file; rewrites inbound wikilinks by default."
+    parameters:
+      type: object
+      properties:
+        src_path:
+          type: string
+          description: "workspace-relative source"
+        dst_path:
+          type: string
+          description: "workspace-relative destination"
+        overwrite:
+          type: boolean
+          description: "overwrite if dst exists"
+          default: false
+        retarget:
+          type: boolean
+          description: "rewrite [[src]] -> [[dst]] across the workspace"
+          default: true
+      required:
+        - src_path
+        - dst_path
+    steps:
+      - backend: move_step
+
+  frontmatter_read:
+    backend: base
+    description: "Read a file's frontmatter as a dict."
+    parameters:
+      type: object
+      properties:
+        path:
+          type: string
+      required:
+        - path
+    steps:
+      - backend: frontmatter_read_step
+
+  frontmatter_update:
+    backend: base
+    description: "Merge key-values into a file's frontmatter."
+    parameters:
+      type: object
+      properties:
+        path:
+          type: string
+        metadata:
+          type: object
+      required:
+        - path
+        - metadata
+    steps:
+      - backend: frontmatter_update_step
+
+  optimize_index:
+    backend: base
+    description: "Idle-time index maintenance: physically reclaim tombstoned keyword-index entries left by file deletions."
+    parameters:
+      type: object
+      properties: {}
+    steps:
+      - backend: optimize_index_step
+
+components:
+  tokenizer:
+    default:
+      backend: regex
+
+  # LLM / embedding models are injected by ReMeMiddleware before start()
+  # (chat_model / embedding_model parameters), so no credentials needed here.
+  as_llm:
+    default:
+      backend: openai
+      stream: true
+      context_size: 200000
+      max_retries: 3
+
+  as_embedding:
+    default:
+      backend: openai
+
+  embedding_store:
+    default:
+      backend: local
+      as_embedding: default
+
+  agent_wrapper:
+    default:
+      backend: agentscope
+      as_llm: default
+      permission_mode: bypass
+      react_config:
+        max_iters: 30
+      context_config:
+        trigger_ratio: 0.8
+        reserve_ratio: 0.1
+        tool_result_limit: 50000
+      model_config:
+        max_retries: 1
+
+  file_graph:
+    default:
+      backend: local
+
+  file_chunker:
+    markdown:
+      backend: markdown
+      supported_extensions: [ "md" ]
+      embed_toc: true
+      max_ast_sections: 100
+      include_frontmatter_in_metadata: false
+      include_frontmatter_keys_in_metadata: []
+    default:
+      backend: default
+      supported_extensions: ["txt", "log"]
+
+  keyword_index:
+    default:
+      backend: bm25
+      tokenizer: default
+
+  file_store:
+    default:
+      backend: local
+      store_name: local
+      # empty = keyword-only; ReMeMiddleware flips this to "default" when an
+      # embedding_model is provided (vector store on)
+      embedding_store: ""
+      keyword_index: default
+      file_graph: default

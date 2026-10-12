@@ -1,0 +1,8 @@
+FROM taskpilot-backend:memoryentry52-20261009
+ARG VCS_REF
+LABEL org.opencontainers.image.revision=$VCS_REF
+COPY app /app/app
+COPY _test*.py /app/
+COPY _fixture_skillui52.py /app/
+COPY migrate_*.py /app/
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh

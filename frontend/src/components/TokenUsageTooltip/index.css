@@ -1,0 +1,31 @@
+.usage-tooltip-overlay .ant-tooltip-inner {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+}
+
+.usage-tooltip-overlay .ant-tooltip-arrow::before {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+}
+
+.token-usage-breakdown {
+  display: grid;
+  gap: 6px;
+  min-width: 128px;
+  font-size: 12px;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.token-usage-breakdown > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.token-usage-breakdown span { color: var(--text-secondary); }
+.token-usage-breakdown strong { color: var(--text-primary); font-weight: 600; }

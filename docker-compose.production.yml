@@ -1,0 +1,120 @@
+# Production runtime only: every TaskPilot image must already exist in the private registry.
+# Usage: docker compose --env-file .env.production -f docker-compose.production.yml up -d
+services:
+  db:
+    image: docker.m.daocloud.io/pgvector/pgvector:pg15
+    container_name: ${TASKPILOT_DB_CONTAINER:-taskpilot-prod-db}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: taskpilot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      POSTGRES_DB: taskpilot
+      TZ: Asia/Shanghai
+      PGTZ: Asia/Shanghai
+    volumes:
+      - ${TASKPILOT_DATA_ROOT:?required}/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskpilot -d taskpilot"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    mem_limit: 2g
+    pids_limit: 256
+    networks: [taskpilot-prod]
+
+  redis:
+    image: docker.m.daocloud.io/library/redis:7-alpine
+    container_name: ${TASKPILOT_REDIS_CONTAINER:-taskpilot-prod-redis}
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?required}", "--appendonly", "yes"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?required}
+      TZ: Asia/Shanghai
+    volumes:
+      - ${TASKPILOT_DATA_ROOT:?required}/redis:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    mem_limit: 1g
+    pids_limit: 128
+    networks: [taskpilot-prod]
+
+  backend:
+    image: ${REGISTRY_PREFIX:?required}/taskpilot-backend:${BACKEND_IMAGE_TAG:-${IMAGE_TAG:?required}}
+    container_name: ${TASKPILOT_BACKEND_CONTAINER:-taskpilot-prod-backend}
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      DATABASE_URL: postgresql+psycopg2://taskpilot:${POSTGRES_PASSWORD}@db:5432/taskpilot
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      APP_ENV: production
+      STRICT_PRODUCTION_CONFIG: "true"
+      VECTOR_DB_PATH: /app/data/vector.db
+      WORKSPACE_BACKEND: docker
+      # Sandbox base image is independent from backend/frontend releases. It
+      # falls back to legacy IMAGE_TAG when not pinned.
+      WORKSPACE_DOCKER_IMAGE: ${REGISTRY_PREFIX}/taskpilot-skill:${SKILL_IMAGE_TAG:-${IMAGE_TAG:?required}}
+      WORKSPACE_HOST_OUTPUT_DIR: ${TASKPILOT_DATA_ROOT:?required}/backend/outputs
+      # ===== 服务预览（默认关闭；键位含义见仓库根 docker-compose.yml） =====
+      PREVIEW_ENABLED: ${PREVIEW_ENABLED:-false}
+      PREVIEW_PUBLIC_BASE_URL: ${PREVIEW_PUBLIC_BASE_URL:-}
+      PREVIEW_HOST_PORT_RANGE: ${PREVIEW_HOST_PORT_RANGE:-31000-31099}
+      PREVIEW_RESERVED_HOST_PORTS: ${PREVIEW_RESERVED_HOST_PORTS:-}
+      PREVIEW_PROXY_IMAGE: ${PREVIEW_PROXY_IMAGE:-}
+      PREVIEW_MAX_TTL_MINUTES: ${PREVIEW_MAX_TTL_MINUTES:-120}
+      PREVIEW_EXPIRED_GRACE_MINUTES: ${PREVIEW_EXPIRED_GRACE_MINUTES:-30}
+      PREVIEW_MAX_CONCURRENT: ${PREVIEW_MAX_CONCURRENT:-20}
+      PREVIEW_MAX_CONCURRENT_PER_USER: ${PREVIEW_MAX_CONCURRENT_PER_USER:-3}
+      PREVIEW_MAX_PER_TURN: ${PREVIEW_MAX_PER_TURN:-3}
+      PREVIEW_BUNDLE_MAX_MB: ${PREVIEW_BUNDLE_MAX_MB:-50}
+      WORKSPACE_DOCKER_NETWORK: ${WORKSPACE_DOCKER_NETWORK:-}
+      TZ: Asia/Shanghai
+    volumes:
+      - ${TASKPILOT_DATA_ROOT:?required}/backend/uploads:/app/uploads
+      - ${TASKPILOT_DATA_ROOT:?required}/backend/outputs:/app/outputs
+      - ${TASKPILOT_DATA_ROOT:?required}/backend/knowledge:/app/knowledge
+      - ${TASKPILOT_DATA_ROOT:?required}/backend/traces:/app/traces
+      - ${TASKPILOT_DATA_ROOT:?required}/backend/projects:/app/projects
+      - ${TASKPILOT_DATA_ROOT:?required}/backend/user_management:/app/user_management
+      - ${TASKPILOT_DATA_ROOT:?required}/backend/memory:/app/memory
+      - ${TASKPILOT_DATA_ROOT:?required}/backend/data:/app/data
+      - ${TASKPILOT_DATA_ROOT:?required}/backend/skills:/app/app/agents/skills
+      - ${TASKPILOT_DATA_ROOT:?required}/backend/skills_dialog:/app/app/agents/skills_dialog
+      - ${TASKPILOT_DATA_ROOT:?required}/backend/skills_task:/app/app/agents/skills_task
+      - ${TASKPILOT_DATA_ROOT:?required}/backend/vaults:/vaults
+      - ${TASKPILOT_DATA_ROOT:?required}/backend/secrets:/secrets:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8001/health"]
+      interval: 20s
+      timeout: 30s
+      start_period: 90s
+      retries: 3
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 8g
+    cpus: 4
+    pids_limit: 1024
+    networks: [taskpilot-prod]
+
+  frontend:
+    image: ${REGISTRY_PREFIX:?required}/taskpilot-frontend:${FRONTEND_IMAGE_TAG:-${IMAGE_TAG:?required}}
+    container_name: ${TASKPILOT_FRONTEND_CONTAINER:-taskpilot-prod-frontend}
+    restart: unless-stopped
+    depends_on:
+      backend: { condition: service_healthy }
+    ports:
+      - "8090:80"
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 512m
+    pids_limit: 128
+    networks: [taskpilot-prod]
+
+networks:
+  taskpilot-prod:
+    name: taskpilot_prod_net

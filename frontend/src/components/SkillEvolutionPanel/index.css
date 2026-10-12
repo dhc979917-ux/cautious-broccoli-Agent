@@ -1,0 +1,11 @@
+.skill-evolution { margin-block: 16px; padding-block: 12px; border-block: 1px solid var(--border-color, #e5e7eb); }
+.skill-evolution-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
+.skill-evolution-head p { margin: 4px 0; color: var(--text-secondary, #667085); font-size: 12px; }
+.skill-evolution .ant-list-item-meta-description { overflow-wrap: anywhere; }
+.skill-evolution-actions { margin-block: 16px; }
+.skill-evolution-code { padding: 12px; border-radius: 8px; background: var(--bg-secondary, #f5f6f8); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 460px; overflow: auto; font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { .skill-evolution * { scroll-behavior: auto; } }
+
+.skill-evolution-compact { flex: 0 0 auto; margin-block: 8px; }
+.skill-evolution-compact .ant-list { max-height: 170px; overflow-y: auto; }
+.skill-evolution-compact .ant-typography { margin-bottom: 4px; }

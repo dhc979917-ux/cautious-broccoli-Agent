@@ -1,0 +1,10 @@
+FROM taskpilot-backend:skillresources52-50ff0d3e30d4
+ARG VCS_REF=unknown
+ARG VERSION=modelgateway52-20261010
+LABEL org.opencontainers.image.revision=$VCS_REF org.opencontainers.image.version=$VERSION
+COPY app /app/app
+COPY migrate_*.py /app/
+COPY _test*.py /app/
+COPY governance-entrypoint.sh /governance-entrypoint.sh
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /governance-entrypoint.sh /docker-entrypoint.sh

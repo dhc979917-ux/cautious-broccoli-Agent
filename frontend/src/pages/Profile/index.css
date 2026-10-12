@@ -1,0 +1,101 @@
+.profile-page {
+  padding: 28px 32px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.profile-loading {
+  padding: 60px 0;
+  text-align: center;
+  color: var(--text-secondary);
+}
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 20px 24px;
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  margin-bottom: 20px;
+}
+.profile-avatar {
+  background: var(--color-primary);
+  flex: 0 0 auto;
+}
+/* 头像容器：hover 显示"更换头像"遮罩 */
+.profile-avatar-wrap {
+  position: relative;
+  cursor: pointer;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+.profile-avatar-mask {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 11px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+.profile-avatar-wrap:hover .profile-avatar-mask {
+  opacity: 1;
+}
+/* 头像纵向容器：头像 + 下方说明小字；agent 侧靠右对齐 */
+.profile-avatar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.profile-avatar-col.agent {
+  margin-left: auto;
+}
+.profile-avatar-caption {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.profile-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+}
+.profile-sub {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+.profile-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+}
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+.profile-quota {
+  margin-top: 18px;
+}
+.profile-quota-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}

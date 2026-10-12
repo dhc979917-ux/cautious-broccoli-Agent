@@ -1,0 +1,56 @@
+.admin-workspace { --admin-muted: #616770; --admin-line: var(--border-color); min-height: 100vh; background: var(--bg-secondary); color: var(--text-primary); }
+[data-theme="dark"] .admin-workspace { --admin-muted: #a2a9b2; }
+.workspace-bar { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 64px; padding: 12px 32px; background: var(--bg-primary); border-bottom: 1px solid var(--admin-line); }
+.workspace-breadcrumb { display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--admin-muted); }
+.workspace-breadcrumb a { display: inline-flex; align-items: center; gap: 9px; color: var(--text-primary); font-weight: 600; }
+.workspace-return { color: var(--admin-muted); font-size: 13px; white-space: nowrap; }
+.workspace-navigation { display: flex; align-items: center; gap: 24px; padding: 0 32px; background: var(--bg-primary); overflow-x: auto; scrollbar-width: thin; border-bottom: 1px solid var(--admin-line); }
+.workspace-navigation a { display: flex; align-items: center; min-height: 48px; flex: 0 0 auto; color: var(--admin-muted); font-size: 13px; font-weight: 500; border-bottom: 2px solid transparent; transition: color 160ms ease, border-color 160ms ease; }
+.workspace-navigation a:hover, .workspace-navigation a.is-active { color: var(--color-primary); }
+.workspace-navigation a.is-active { border-bottom-color: var(--color-primary); }
+.workspace-content { max-width: 1560px; margin: 0 auto; padding: 32px; }
+.admin-workspace a:focus-visible, .admin-workspace button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 4px; }
+.admin-workspace :is(.people-page, .model-governance-page, .governance-page, .mcp-page, .admin-home) { max-width: none; margin: 0; padding: 0; }
+.admin-workspace :is(.people-header, .model-governance-header, .governance-heading, .mcp-header) { margin-bottom: 26px; padding: 0; background: transparent; border: 0; box-shadow: none; }
+.admin-workspace :is(h1, .governance-heading h2, .mcp-title) { margin: 0 0 8px; color: var(--text-primary); font-size: 28px; font-weight: 650; letter-spacing: -0.025em; line-height: 1.3; }
+.admin-workspace :is(.people-header, .governance-heading, .model-governance-header) :is(p, .ant-typography-secondary) { margin: 0; color: var(--admin-muted); font-size: 14px; line-height: 1.65; }
+.admin-workspace .governance-heading > div > a { display: none; }
+.admin-workspace .ant-table-wrapper { background: var(--bg-primary); border: 1px solid var(--admin-line); border-radius: 12px; overflow: hidden; }
+.admin-workspace .ant-table-wrapper .ant-table { background: var(--bg-primary); }
+.admin-workspace .ant-table-wrapper .ant-table-thead > tr > th { background: var(--bg-primary) !important; color: var(--admin-muted); font-size: 12px; font-weight: 600; border-bottom: 1px solid var(--admin-line); }
+.admin-workspace .ant-table-tbody > tr > td { border-bottom: 1px solid var(--admin-line); }
+.admin-workspace .ant-table-tbody > tr:last-child > td { border-bottom: 0; }
+.admin-workspace .ant-table-pagination { padding: 0 18px; }
+.admin-workspace .ant-tag { border-radius: 5px; font-size: 12px; }
+.admin-workspace .ant-tabs-top > .ant-tabs-nav { margin-bottom: 24px; }
+.admin-workspace .ant-tabs-tab { padding-top: 12px; padding-bottom: 12px; }
+.admin-workspace .ant-tabs-nav::before { border-bottom-color: var(--admin-line); }
+.admin-workspace .ant-alert { border-radius: 8px; }
+.admin-workspace .people-filters { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 18px; padding: 0; }
+.admin-workspace .people-filters > .ant-input-search { width: 270px; }
+.admin-workspace .people-filters > .ant-select { min-width: 138px; flex: 0 1 152px; }
+.admin-workspace .people-filters .ant-input-affix-wrapper { background: var(--bg-primary); }
+.admin-workspace .people-filters + .ant-alert { margin-bottom: 16px; }
+.admin-workspace .admin-layout { min-height: 0; background: transparent; }
+.admin-workspace .admin-header { height: auto; padding: 0; margin: 0 0 24px; background: transparent; border: 0; box-shadow: none; }
+.admin-workspace .admin-header-left > :first-child, .admin-workspace .admin-header-right { display: none; }
+.admin-workspace .admin-header-left > span { font-size: 28px !important; font-weight: 650 !important; }
+.admin-workspace .admin-content { padding: 0; max-width: none; }
+.admin-workspace .admin-stats { display: flex; gap: 28px; margin: 0 0 24px; padding: 14px 0; border-block: 1px solid var(--admin-line); }
+.admin-workspace .admin-stat-card { display: flex; gap: 12px; border: 0; padding: 0; border-radius: 0; background: transparent; }
+.admin-workspace .admin-stat-card:hover { transform: none; box-shadow: none; }
+.admin-workspace .admin-stat-icon { height: 32px; width: 32px; border-radius: 6px; font-size: 17px; }
+.admin-workspace .admin-stat-value { font-size: 22px; font-variant-numeric: tabular-nums; }
+.admin-workspace .admin-stat-label { color: var(--admin-muted); }
+.admin-workspace .admin-section { border: 0; background: transparent; border-radius: 0; padding: 0; margin-bottom: 28px; }
+.admin-workspace .admin-section-title { font-size: 17px; }
+.admin-workspace .admin-section-header { gap: 16px; flex-wrap: wrap; }
+.admin-workspace .governance-summary { display: flex; flex-wrap: wrap; gap: 22px; padding: 18px 0; border-block: 1px solid var(--admin-line); background: transparent; border-radius: 0; margin-bottom: 24px; }
+.admin-workspace .governance-summary > span { color: var(--admin-muted); }
+.admin-workspace .mcp-tip { padding: 16px 18px; margin-bottom: 22px; border-radius: 8px; background: var(--bg-tertiary); color: var(--admin-muted); }
+.admin-workspace .ant-table-cell { font-variant-numeric: tabular-nums; }
+.admin-workspace ::selection { background: var(--color-primary-bg); color: var(--text-primary); }
+.admin-workspace input { caret-color: var(--color-primary); }
+@media (max-width: 1000px) { .workspace-content { padding: 26px 22px; } .workspace-bar, .workspace-navigation { padding-inline: 22px; } .workspace-navigation { gap: 20px; } }
+@media (max-width: 700px) { .workspace-content { padding: 22px 14px; } .workspace-bar, .workspace-navigation { padding-inline: 14px; } .workspace-bar { min-height: 54px; gap: 10px; } .workspace-return { font-size: 0; } .workspace-return .anticon { font-size: 16px; } .workspace-breadcrumb { gap: 8px; } .workspace-navigation { gap: 20px; } .admin-workspace :is(h1, .governance-heading h2, .mcp-title) { font-size: 24px; } .admin-workspace :is(.people-header, .model-governance-header, .governance-heading) { flex-direction: column; align-items: stretch; gap: 14px; } .admin-workspace .people-filters > .ant-input-search { width: 100%; } .admin-workspace .people-filters > .ant-select { flex: 1 1 120px; } .admin-workspace .admin-stats { gap: 20px; flex-wrap: wrap; } .admin-workspace .ant-btn { min-height: 40px; } }
+@media (prefers-reduced-motion: reduce) { .admin-workspace * { transition: none !important; animation: none !important; } }

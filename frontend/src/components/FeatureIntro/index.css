@@ -1,0 +1,236 @@
+/* ===== Feature Intro Modal ===== */
+
+.feature-intro-modal .ant-modal-content {
+  padding: 0;
+  overflow: hidden;
+  background: var(--bg-primary);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+}
+
+.feature-intro-modal .ant-modal-header {
+  padding: 20px 24px;
+  margin: 0;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-primary);
+}
+
+.feature-intro-modal .ant-modal-close {
+  top: 20px;
+  inset-inline-end: 20px;
+  color: var(--text-tertiary);
+}
+
+.feature-intro-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.feature-intro-modal-title-icon {
+  font-size: 22px;
+  color: var(--color-primary);
+}
+
+.feature-intro-modal-title-main {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.feature-intro-modal-title-sub {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+/* ===== Tabs ===== */
+
+.feature-intro-modal .ant-modal-body {
+  padding: 0;
+}
+
+.feature-intro-tabs {
+  height: 70vh;
+  overflow: hidden;
+}
+
+.feature-intro-tabs .ant-tabs-nav {
+  margin: 0;
+  padding: 16px 0;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  min-width: 150px;
+}
+
+.feature-intro-tabs .ant-tabs-tab {
+  padding: 10px 16px !important;
+  margin: 0 !important;
+  transition: all var(--transition-fast);
+}
+
+.feature-intro-tabs .ant-tabs-tab:hover {
+  background: var(--bg-hover);
+}
+
+.feature-intro-tabs .ant-tabs-tab-active .feature-intro-tab-text {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.feature-intro-tab-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.feature-intro-tabs .ant-tabs-tab-active .feature-intro-tab-label {
+  color: var(--color-primary);
+}
+
+.feature-intro-tabs .ant-tabs-content-holder {
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.feature-intro-tabs .ant-tabs-content-holder::-webkit-scrollbar {
+  width: 6px;
+}
+
+.feature-intro-tabs .ant-tabs-content-holder::-webkit-scrollbar-thumb {
+  background: var(--border-color-hover);
+  border-radius: 3px;
+}
+
+.feature-intro-tabs .ant-tabs-content-holder::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ===== Cards Grid ===== */
+
+.feature-intro-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 16px;
+  padding-bottom: 8px;
+}
+
+.feature-intro-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.feature-intro-card:hover {
+  border-color: var(--color-primary-border);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.feature-intro-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.feature-intro-card-icon {
+  font-size: 18px;
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.feature-intro-card-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+/* ===== Screenshot ===== */
+
+.feature-intro-card-screenshot {
+  margin: 0 0 10px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+}
+
+.feature-intro-card-screenshot img {
+  width: 100%;
+  height: auto;
+  display: block;
+  max-height: 180px;
+  object-fit: cover;
+  object-position: top;
+}
+
+/* ===== Description ===== */
+
+.feature-intro-card-desc {
+  font-size: var(--font-size-xs);
+  line-height: 1.65;
+  color: var(--text-secondary);
+  margin: 0 0 12px;
+  flex: 1;
+}
+
+/* ===== Navigate Link ===== */
+
+.feature-intro-card-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: color var(--transition-fast), gap var(--transition-fast);
+  align-self: flex-start;
+}
+
+.feature-intro-card-link:hover {
+  color: var(--color-primary-hover);
+  gap: 8px;
+}
+
+/* ===== Responsive ===== */
+
+@media (max-width: 768px) {
+  .feature-intro-modal .ant-modal {
+    max-width: 100vw;
+    margin: 0;
+  }
+
+  .feature-intro-tabs {
+    height: 480px;
+  }
+
+  .feature-intro-tabs .ant-tabs-nav {
+    min-width: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .feature-intro-tabs .ant-tabs-tab-row {
+    display: flex;
+    overflow-x: auto;
+  }
+
+  .feature-intro-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}

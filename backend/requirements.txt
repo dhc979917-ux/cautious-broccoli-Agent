@@ -1,0 +1,63 @@
+﻿# Web框架
+fastapi==0.139.2
+uvicorn[standard]==0.52.4
+python-multipart==0.0.32
+
+# 数据库
+sqlalchemy==2.0.36
+alembic==1.14.0
+# PostgreSQL 驱动（部署环境）
+psycopg2-binary==2.9.10
+
+# 缓存
+redis==5.2.1
+
+# 认证
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+
+# AI框架
+agentscope==2.0.5
+# DockerWorkspace 依赖：后端驱动 Docker 沙箱容器（WORKSPACE_BACKEND=docker）
+aiodocker>=0.22.0
+reme-ai>=0.4.0.6
+# 与 agentscope 2.0.5 实测兼容的 mcp/sse-starlette 版本（避免 resolver 回退到缺少
+# streamable_http_client 的旧 mcp，导致 ImportError）
+mcp==1.28.1
+sse-starlette==3.4.6
+# SKILL.md frontmatter 解析（manager.py 直接引用，避免仅靠传递依赖）
+python-frontmatter>=1.1.0
+
+# 工具
+pydantic==2.13.4
+pydantic-settings==2.7.0
+python-dotenv==1.2.3
+
+# 其他
+httpx==0.28.1
+
+# 知识图谱社区检测（Louvain，networkx 内置）
+networkx>=3.1
+
+# 知识库目录监听（KnowledgeWatcher）：记忆/文档增量自动索引、删除自动清理。
+# 容器缺它时 watcher 静默降级为 no-op，会留下悬空文档记录
+watchdog>=4.0.0
+
+# 知识库源文档解析（source_to_md_service）：PDF/Excel/Word/PPT 抽取。
+# 容器缺它们时抽取静默降级为"按文本读二进制"，产生乱码+NUL 字节，
+# 导致 LLM 改写全是"文档解析失败"、PostgreSQL 入库报 NUL 错误（本地开发机
+# conda 装了所以本地正常、服务器失败）。
+PyMuPDF>=1.24.0
+openpyxl>=3.1.0
+python-docx>=1.1.0
+python-pptx>=0.6.23
+# Hermes pdf skill 依赖（pypdf 不是 PyPDF2；reportlab 用于创建 PDF；pdfplumber 用于文本/表格提取）
+pypdf>=4.0.0
+reportlab>=4.0.0
+pdfplumber>=0.11.0
+pypdfium2>=4.0.0
+
+# 调度任务模块：进程内定时调度器（AsyncIOScheduler 与 FastAPI 事件循环共生；
+# scheduled_jobs 表是唯一事实源，启动时重建注册，无需持久化 jobstore）
+APScheduler>=3.10.4,<4.0

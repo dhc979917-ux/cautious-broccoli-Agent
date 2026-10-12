@@ -1,0 +1,160 @@
+.admin-layout { min-height: 100vh; background: var(--bg-secondary); transition: background var(--transition-base); }
+
+.admin-header {
+  height: 64px;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-header-left { display: flex; align-items: center; gap: 16px; }
+.admin-header-right { display: flex; align-items: center; gap: 12px; }
+
+.admin-content { padding: 32px; max-width: 1400px; margin: 0 auto; }
+
+/* ===== Stats Cards ===== */
+.admin-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
+
+.admin-stat-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: all 0.3s ease;
+}
+
+.admin-stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+
+.admin-stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: white;
+}
+
+.admin-stat-value { font-size: 28px; font-weight: 700; color: var(--text-primary); line-height: 1; }
+.admin-stat-label { font-size: 13px; color: var(--text-tertiary); margin-top: 4px; }
+
+/* ===== Table Section ===== */
+.admin-section {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  transition: background var(--transition-base);
+}
+
+.admin-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.admin-section-title { font-size: 16px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+
+.admin-table .ant-table { background: transparent; }
+.admin-table .ant-table-thead > tr > th { background: var(--bg-tertiary) !important; border-bottom: 1px solid var(--border-color); }
+.admin-table .ant-table-tbody > tr > td { border-bottom: 1px solid var(--border-color); }
+.admin-table .ant-table-tbody > tr:hover > td { background: var(--bg-hover) !important; }
+
+/* 归属切换弹窗里的补充说明（技能包成员脱离包的提示） */
+.admin-scope-hint {
+  margin-top: 12px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-tertiary);
+}
+
+/* ===== Action Buttons ===== */
+.admin-action-btn {
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  height: 32px !important;
+}
+
+/* ===== Modal Overrides ===== */
+.admin-modal .ant-modal-content {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.admin-modal .ant-modal-header {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admin-modal .ant-form-item-label > label {
+  font-weight: 500;
+}
+
+.admin-modal .ant-input,
+.admin-modal .ant-select-selector,
+.admin-modal .ant-input-affix-wrapper {
+  border-radius: 8px !important;
+}
+.admin-workspace .admin-resource-page .admin-header { margin-bottom: 12px; }
+.admin-workspace .admin-resource-page .admin-stats { margin: 0 0 12px; padding: 8px 0; }
+.admin-workspace .admin-resource-page .admin-stat-icon { width: 26px; height: 26px; font-size: 15px; }
+.admin-workspace .admin-resource-page .admin-stat-value { font-size: 18px; }
+.admin-workspace .admin-resource-page .admin-section { margin-bottom: 0; }
+.admin-workspace .admin-resource-page .admin-section-header { margin-bottom: 12px; }
+.admin-resource-count { color: var(--text-secondary); font-size: 13px; }
+.admin-workspace .admin-resource-page .ant-table-cell { padding-block: 9px; padding-inline: 12px; }
+.admin-workspace .admin-resource-page .ant-table-tbody > tr.ant-table-row { height: 43px; }
+.admin-workspace .admin-resource-page .ant-table-pagination { margin-block: 12px; }
+.admin-resource-page .ant-table-cell .ant-space { flex-wrap: nowrap; }
+.admin-resource-page .ant-table-cell .ant-tag { margin-inline-end: 0; }
+.skill-package-row { background: var(--color-primary-bg); }
+.skill-package-caption { color: var(--text-secondary); margin: 0 0 16px; }
+.skill-package-drawer .ant-table-cell { padding: 10px 12px; }
+.skill-package-children { margin-left: 24px; padding-left: 12px; }
+.admin-workspace .skill-package-children .ant-table-wrapper { border-radius: 6px; }
+.admin-workspace .skill-package-children .ant-table-tbody > tr.ant-table-row { height: 36px; }
+.admin-workspace .admin-resource-page .ant-table-measure-row > td { padding: 0; }
+.admin-workspace .skill-package-children .ant-table-cell { padding-block: 5px; }
+.admin-workspace .skill-package-children .ant-table-pagination { margin-block: 8px; }
+.skill-package-children .skill-package-caption { margin-bottom: 8px; font-size: 12px; }
+@media (min-width: 1001px) and (max-height: 800px) {
+  .admin-workspace .workspace-content:has(.admin-resource-page), .admin-workspace .workspace-content:has(.agent-config) { padding-top: 18px; padding-bottom: 12px; }
+  .admin-workspace .admin-resource-page .admin-stats { display: none; }
+  .admin-workspace .admin-resource-page .ant-table-cell { padding-block: 4px; }
+  .admin-workspace .admin-resource-page .ant-table-tbody > tr.ant-table-row { height: 33px; }
+  .admin-workspace .admin-resource-page .ant-table-pagination { margin-block: 8px; }
+  .admin-workspace .skill-package-children .ant-table-cell { padding-block: 1px; }
+  .admin-workspace .skill-package-children .ant-table-tbody > tr.ant-table-row { height: 27px; }
+  .admin-workspace .skill-package-children .ant-table-pagination { margin-block: 6px; }
+  .admin-workspace .admin-resource-page .ant-table-measure-row > td { padding: 0; }
+  .admin-workspace .agent-config .ant-tabs-nav { margin-bottom: 12px; }
+}
+
+/* Only the skill-admin surface owns this two-row upload area. Its width matches the actions below. */
+.admin-skill-has-upload { --skill-actions-width: 388px; position: relative; }
+.admin-skill-has-upload .admin-skill-upload-slot { position: absolute; top: 0; right: 0; width: var(--skill-actions-width); height: 148px; }
+.admin-skill-has-upload > .admin-header { padding-right: calc(var(--skill-actions-width) + 48px); min-height: 64px; height: auto; }
+.admin-skill-has-upload .admin-header-right { display: none; }
+.admin-skill-has-upload .admin-stats { min-height: 72px; padding-right: calc(var(--skill-actions-width) + 24px); display: flex !important; align-items: center; }
+.admin-skill-has-upload .admin-skill-search-actions { width: var(--skill-actions-width); justify-content: flex-end; }
+.admin-skill-has-upload .admin-content { padding-top: 12px; }
+@media (max-width: 700px) {
+  .admin-skill-has-upload .admin-skill-upload-slot { position: static; width: auto; height: 156px; margin-bottom: 16px; }
+  .admin-skill-has-upload > .admin-header { padding: 0 0 16px; min-height: 40px; }
+  .admin-skill-has-upload .admin-stats { padding-right: 0; min-height: 56px; }
+  .admin-skill-has-upload .admin-section-header { flex-direction: column; align-items: stretch; gap: 12px; }
+  .admin-skill-has-upload .admin-skill-search-actions { width: 100%; }
+  .admin-skill-has-upload .admin-skill-search-actions > .ant-space-item:first-child { flex: 1; min-width: 0; }
+  .admin-skill-has-upload .admin-skill-search-actions .ant-input-affix-wrapper { width: 100% !important; }
+}
+
+@media (min-width: 701px) { .admin-workspace .admin-skill-has-upload > .admin-header { min-height: 64px; padding-right: calc(var(--skill-actions-width) + 24px); } }

@@ -1,0 +1,42 @@
+.hub-page { min-height: 100%; max-width: 1600px; margin: 0 auto; }
+.hub-header { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 20px; }
+.hub-header h1 { margin: 0 0 8px; font-size: 28px; color: var(--text-primary); }
+.hub-header p { color: var(--text-secondary); margin: 0; }
+.hub-main-tabs > .ant-tabs-nav .ant-tabs-tab { font-size: 18px; padding: 16px 0; }
+.hub-toolbar { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0 24px; }
+.hub-toolbar > .ant-input-affix-wrapper { flex: 1; min-width: 220px; max-width: 420px; }
+.hub-toolbar > .ant-input { width: 160px; }
+.hub-toolbar > .ant-select { min-width: 150px; }
+.hub-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+.hub-resource { padding: 22px; border: 1px solid var(--border-color); border-radius: 14px; background: var(--bg-card, var(--bg-secondary)); display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.hub-resource header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.hub-resource-icon { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: var(--color-primary-bg); color: var(--color-primary); border-radius: 8px; }
+.hub-resource h3 { margin: 8px 0 0; font-size: 19px; line-height: 1.4; }
+.hub-title-button { text-align: left; border: 0; padding: 0; color: var(--text-primary); background: transparent; font: inherit; cursor: pointer; overflow-wrap: anywhere; }
+.hub-title-button:hover { color: var(--color-primary); }
+.hub-summary { color: var(--text-secondary); margin: 0; line-height: 1.65; min-height: 48px; overflow-wrap: anywhere; }
+.hub-resource-meta { font-size: 12px; color: var(--text-secondary); overflow-wrap: anywhere; }
+.hub-resource footer { margin-top: auto; padding-top: 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.hub-resource .ant-rate { font-size: 14px; }
+.hub-editor-toolbar { margin: 16px 0; }
+.hub-editor-grid { display: grid; grid-template-columns: minmax(180px, 240px) minmax(0, 1fr); gap: 20px; }
+.hub-file-list { max-height: 650px; overflow: auto; border-right: 1px solid var(--border-color); padding-right: 12px; }
+.hub-file-list button { border: 0; padding: 10px 8px; display: flex; align-items: flex-start; gap: 8px; width: 100%; text-align: left; color: var(--text-primary); background: transparent; border-radius: 6px; cursor: pointer; }
+.hub-file-list button span { overflow-wrap: anywhere; }
+.hub-file-list button:hover, .hub-file-list button.active { background: var(--color-primary-bg); color: var(--color-primary); }
+.hub-code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; line-height: 1.65; margin-top: 12px; }
+.hub-report { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 500px; overflow: auto; padding: 16px; border-radius: 8px; background: var(--bg-hover); color: var(--text-primary); font-size: 13px; line-height: 1.65; }
+.hub-upload-button { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px 12px; border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); }
+.hub-upload-button input { max-width: 200px; }
+.hub-full { width: 100%; margin-top: 16px; }
+.hub-full .ant-select { width: 100%; }
+.hub-form-pair { display: flex; width: 100%; }
+.hub-form-pair > .ant-space-item { flex: 1; min-width: 0; }
+.hub-review { width: 100%; }
+.hub-detail-summary { margin-top: 16px; line-height: 1.7; }
+.hub-page button:focus-visible, .hub-file-list button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+.hub-admin { padding: 28px; }
+@media (max-width: 768px) { .hub-page { padding: 20px; } .hub-header { align-items: flex-start; } .hub-header h1 { font-size: 24px; } .hub-grid { grid-template-columns: 1fr; } .hub-editor-grid { grid-template-columns: 1fr; } .hub-file-list { max-height: 180px; border-right: 0; border-bottom: 1px solid var(--border-color); } .hub-toolbar > .ant-input-affix-wrapper { max-width: none; } .hub-admin { padding: 16px; } }
+
+.hub-package-heading { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin: 8px 0 16px; }
+.hub-package-heading .ant-typography { margin: 0; overflow-wrap: anywhere; }

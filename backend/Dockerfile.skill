@@ -1,0 +1,21 @@
+FROM docker.m.daocloud.io/library/python:3.11-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    locales git pandoc curl fonts-noto-cjk \
+    && sed -i '/zh_CN.UTF-8/s/^# //g' /etc/locale.gen \
+    && locale-gen zh_CN.UTF-8 \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV LANG=zh_CN.UTF-8 LC_ALL=zh_CN.UTF-8 \
+    PYTHONIOENCODING=utf-8 PYTHONUNBUFFERED=1 \
+    TZ=Asia/Shanghai PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
+
+RUN pip install --no-cache-dir \
+    python-docx openpyxl python-pptx \
+    pandas matplotlib seaborn \
+    Pillow reportlab pypdfium2 \
+    requests beautifulsoup4 lxml \
+    xlsxwriter pdfplumber pypdf pymupdf \
+    jieba wordcloud
+
+WORKDIR /workspace

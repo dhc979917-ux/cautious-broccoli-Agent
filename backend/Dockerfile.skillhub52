@@ -1,0 +1,10 @@
+FROM taskpilot-backend:skillhub52-20261010
+ARG VCS_REF=unknown
+ARG VERSION=evolution52-20261012
+LABEL org.opencontainers.image.revision=$VCS_REF org.opencontainers.image.version=$VERSION
+COPY app /app/app
+COPY migrate_*.py /app/
+COPY _test*.py /app/
+COPY governance-entrypoint.sh /governance-entrypoint.sh
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /governance-entrypoint.sh /docker-entrypoint.sh

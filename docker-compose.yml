@@ -1,0 +1,188 @@
+﻿# TaskPilot 容器栈：nginx（唯一入口 :8090）→ backend → PostgreSQL + Redis
+# 数据统一持久化在 /srv/taskpilot；仅 frontend 暴露宿主端口，不与服务器现有服务冲突。
+# 组合级变量（POSTGRES_PASSWORD / REDIS_PASSWORD / CORS_ORIGINS）取自本目录 .env（见 .env.example）。
+
+services:
+  db:
+    image: docker.m.daocloud.io/pgvector/pgvector:pg15
+    container_name: taskpilot-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: taskpilot
+      # Coolify 运行期注入；构建期插值为空，故不强制 :?
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: taskpilot
+      TZ: Asia/Shanghai
+      PGTZ: Asia/Shanghai
+    volumes:
+      - /srv/taskpilot/data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskpilot -d taskpilot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [taskpilot]
+
+  redis:
+    image: docker.m.daocloud.io/library/redis:7-alpine
+    container_name: taskpilot-redis
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes"]
+    environment:
+      TZ: Asia/Shanghai
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - /srv/taskpilot/data/redis:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [taskpilot]
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.skillhub52
+      args:
+        VCS_REF: ${SOURCE_REVISION:-evolution52-20261012}
+        VERSION: evolution52-20261012
+    image: taskpilot-backend:evolution52-20261012
+    container_name: taskpilot-backend
+    restart: unless-stopped
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      # 容器内网地址与部署专属配置，覆盖 env_file 中的本地开发值
+      DATABASE_URL: postgresql+psycopg2://taskpilot:${POSTGRES_PASSWORD}@db:5432/taskpilot
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8090}
+      # 应用与密钥：Coolify 应用级 env 注入；本地部署走 ./backend/.env
+      APP_ENV: production
+      STRICT_PRODUCTION_CONFIG: true
+      SECRET_ENCRYPTION_KEY_FILE: /secrets/data_encryption_key
+      GOVERNANCE_RBAC_ENABLED: ${GOVERNANCE_RBAC_ENABLED:-false}
+      GOVERNANCE_RESOURCE_VERSIONING_ENABLED: ${GOVERNANCE_RESOURCE_VERSIONING_ENABLED:-false}
+      GOVERNANCE_TOOL_POLICY_ENABLED: ${GOVERNANCE_TOOL_POLICY_ENABLED:-false}
+      GOVERNANCE_MEMORY_CANDIDATES_ENABLED: ${GOVERNANCE_MEMORY_CANDIDATES_ENABLED:-false}
+      GOVERNANCE_OPERATIONS_ENABLED: ${GOVERNANCE_OPERATIONS_ENABLED:-false}
+      MCP_STDIO_ALLOWED_COMMANDS: ${MCP_STDIO_ALLOWED_COMMANDS:-}
+      MCP_HTTP_ALLOWED_HOSTS: ${MCP_HTTP_ALLOWED_HOSTS:-}
+      MCP_HTTP_REVIEWED_URLS: ${MCP_HTTP_REVIEWED_URLS:-}
+      SKILL_HUB_ENABLED: "true"
+      SKILL_EVOLUTION_ENABLED: ${SKILL_EVOLUTION_ENABLED:-true}
+      SKILL_EVOLUTION_WORKER_ENABLED: ${SKILL_EVOLUTION_WORKER_ENABLED:-true}
+      SKILL_EVOLUTION_MAX_JOBS_PER_DAY: ${SKILL_EVOLUTION_MAX_JOBS_PER_DAY:-20}
+      SKILL_TEST_IMAGE: taskpilot-skill@sha256:2c2ff94abfc303c90787e59b1f8033191b9ec7b7040d3fea15be12cb1a4c328c
+      SKILL_TEST_HOST_KNOWLEDGE_DIR: /srv/taskpilot/data/backend/knowledge
+      APP_HOST: ${APP_HOST:-0.0.0.0}
+      APP_PORT: ${APP_PORT:-8000}
+      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY:-}
+      AI_GATEWAY_BASE_URL: ${AI_GATEWAY_BASE_URL:-}
+      OCR_PROXY_URL: ${OCR_PROXY_URL:-http://localhost:8090/api/v1/ocr/recognize}
+      MODEL_NAME: ${MODEL_NAME:-qwen-max}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_SECURITY: ${SMTP_SECURITY:-auto}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      IMAP_HOST: ${IMAP_HOST:-}
+      IMAP_PORT: ${IMAP_PORT:-}
+      VECTOR_DB_PATH: /app/data/vector.db
+      TZ: Asia/Shanghai
+      # Workspace 沙箱：后端经 Docker 为每个会话创建兄弟容器执行 Agent 命令
+      # （沙箱镜像 taskpilot-skill 见 docker/Dockerfile.skill，先 build 再启动）
+      WORKSPACE_BACKEND: ${WORKSPACE_BACKEND:-docker}
+      WORKSPACE_DOCKER_IMAGE: ${WORKSPACE_DOCKER_IMAGE:-taskpilot-skill:latest}
+      WORKSPACE_DOCKER_EXTRA_PIP: ${WORKSPACE_DOCKER_EXTRA_PIP:-}
+      # 允许透传进沙箱容器的后端环境变量名（逗号分隔）。沙箱里跑的是 Agent 生成的
+      # 任意代码，透传即等于把该凭据暴露给会话，因此名单必须显式、可审计。
+      # 沙箱中运行不受信任的 Agent 代码，不向其透传模型网关主密钥。
+      WORKSPACE_DOCKER_ENV_PASSTHROUGH: ""
+      # 后端容器内 outputs 对应的宿主机真实路径（兄弟沙箱容器 bind mount 源，
+      # 必须与下方 volumes 中 outputs 的宿主侧路径一致）
+      WORKSPACE_HOST_OUTPUT_DIR: ${WORKSPACE_HOST_OUTPUT_DIR:-/srv/taskpilot/data/backend/outputs}
+      # ===== 服务预览：把 Agent 在沙箱里起的 Web 服务发布成用户可直接访问的临时地址 =====
+      # 默认关闭。关闭时探测/发布/清理整条链路全部短路，行为与改造前完全一致。
+      PREVIEW_ENABLED: ${PREVIEW_ENABLED:-false}
+      # 对外展示基址（协议+主机，不含端口）：预览地址 = 基址 + ":宿主端口/"。
+      # 后端跑在容器里看不到宿主 IP，必须由部署显式给出；留空则前端只能显示端口。
+      PREVIEW_PUBLIC_BASE_URL: ${PREVIEW_PUBLIC_BASE_URL:-}
+      # 宿主端口分配区间（需在宿主防火墙放行）。代理容器镜像留空 = 复用沙箱镜像，
+      # 转发脚本以 python3 -c 内联注入，不需要额外构建/分发镜像。
+      PREVIEW_HOST_PORT_RANGE: ${PREVIEW_HOST_PORT_RANGE:-31000-31099}
+      PREVIEW_PROXY_IMAGE: ${PREVIEW_PROXY_IMAGE:-}
+      # 单条预览最长存活（分钟）/ 失效后保留"预览已结束"说明页的宽限期 / 并发上限
+      PREVIEW_MAX_TTL_MINUTES: ${PREVIEW_MAX_TTL_MINUTES:-120}
+      PREVIEW_EXPIRED_GRACE_MINUTES: ${PREVIEW_EXPIRED_GRACE_MINUTES:-30}
+      PREVIEW_MAX_CONCURRENT: ${PREVIEW_MAX_CONCURRENT:-20}
+      PREVIEW_MAX_CONCURRENT_PER_USER: ${PREVIEW_MAX_CONCURRENT_PER_USER:-3}
+      PREVIEW_MAX_PER_TURN: ${PREVIEW_MAX_PER_TURN:-3}
+      # 源码包（含 HOW_TO_RUN.md）体积上限 MB
+      PREVIEW_BUNDLE_MAX_MB: ${PREVIEW_BUNDLE_MAX_MB:-50}
+      # 沙箱容器附加的 Docker 网络（留空 = 沿用框架默认 bridge；
+      # 预览代理容器会自己挂到"沙箱当前所在的那张网"上，不依赖本项）
+      WORKSPACE_DOCKER_NETWORK: ${WORKSPACE_DOCKER_NETWORK:-}
+    volumes:
+      - /srv/taskpilot/data/backend/uploads:/app/uploads
+      - /srv/taskpilot/data/backend/outputs:/app/outputs
+      - /srv/taskpilot/data/backend/knowledge:/app/knowledge
+      - /srv/taskpilot/data/backend/traces:/app/traces
+      - /srv/taskpilot/data/backend/projects:/app/projects
+      - /srv/taskpilot/data/backend/user_management:/app/user_management
+      - /srv/taskpilot/data/backend/memory:/app/memory
+      - /srv/taskpilot/data/backend/data:/app/data
+      # 固定 Playwright 浏览器在宿主机：镜像源临时不可用时仍保留产物渲染校验能力。
+      - /srv/taskpilot/data/backend/playwright:/ms-playwright:ro
+      - /srv/taskpilot/data/backend/skills:/app/app/agents/skills
+      - /srv/taskpilot/data/backend/skills_dialog:/app/app/agents/skills_dialog
+      - /srv/taskpilot/data/backend/skills_task:/app/app/agents/skills_task
+      - /srv/taskpilot/data/backend/vaults:/vaults
+      # 允许后端容器调用宿主 Docker daemon 创建沙箱兄弟容器
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [taskpilot]
+    # 不映射端口：仅容器网络内由 nginx 访问 backend:8000
+
+  # 技能沙箱镜像（非常驻服务，仅用于构建）：
+  #   docker compose build skill-sandbox
+  skill-sandbox:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.skill
+    image: taskpilot-skill:latest
+    container_name: taskpilot-skill-build
+    profiles: ["build-only"]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VCS_REF: ${SOURCE_REVISION:-evolution52-20261012}
+        VERSION: evolution52-20261012
+    image: taskpilot-frontend:evolution52-20261012
+    container_name: taskpilot-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      # 宿主机唯一入口。默认 8090；个别宿主机上 8090 已被宿主 nginx 占用
+      # （Docker 的 nftables DNAT 在该机上不能正确把外部流量送进容器，只能由宿主
+      # nginx 监听 8090 反代到容器），此时把本项设为容器实际发布的内部端口（如 8091），
+      # 否则容器起不来、整次部署失败。
+      - "${TASKPILOT_FRONTEND_HOST_PORT:-8090}:80"
+    networks: [taskpilot]
+
+networks:
+  taskpilot:
+    name: taskpilot_net

@@ -1,0 +1,38 @@
+.cache-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-primary-border);
+  border-radius: var(--radius-full);
+  background: var(--color-primary-bg);
+  font-size: var(--font-size-xs);
+  line-height: 1.2;
+  white-space: nowrap;
+  user-select: none;
+  cursor: help;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.cache-indicator:hover { border-color: var(--color-primary); }
+.cache-indicator:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+.cache-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.cache-label {
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.cache-rate {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  min-width: 34px;
+}

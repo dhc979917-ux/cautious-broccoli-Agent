@@ -1,0 +1,118 @@
+# Python
+__pycache__/
+*.py[cod]
+*.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+!deploy/lib/
+!deploy/lib/*.py
+# The Python rule above also swallows frontend/src/lib (source, not build output)
+!frontend/src/lib/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+frontend/dist/
+*.log
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads and outputs (keep structure but not files)
+backend/uploads/*
+backend/outputs/*
+!backend/uploads/.gitkeep
+!backend/outputs/.gitkeep
+
+# Runtime tracing output
+backend/traces/
+
+# 长期记忆（按用户隔离的 Markdown 记忆数据，运行时生成）
+backend/memory/
+
+# Docker 部署持久化数据目录（app.db/uploads/outputs/knowledge/vector.db）
+data/
+
+# Test files
+test.pdf
+
+# 本地清理回收站（移出的无用文件，不入库）
+trash/
+
+# Secrets（部署密钥只放服务器，禁止入库）
+.env
+.env.local
+.env.prod
+.env.*.local
+
+# Headless-chrome test artifacts (profiles + logs)
+test/_chrome_profile*/
+test/_chrome_err.txt
+# UI 回归夹具产物：免密登录快照含实时 JWT，截图为本地留档，都不入库
+test/_ui_auth.json
+# 强制下线 UI 回归的账号夹具（含明文测试口令，由 test/_ui_logout_fixture.py 生成）
+test/_ui_logout_user.json
+test/_shots/
+
+# 部署运维参考（含真实凭据，勿提交）
+ssh/
+
+# 本地工作 scratch（临时脚本/日志/快照，勿提交）
+/_*
+backend/_*
+_snap_stage/
+backend/app_snapshot.db
+backend/traces/
+
+# 运行时/数据目录（用户上传、知识库原文、vault 笔记、Agent 工作产物，勿入库）
+backend/knowledge/
+backend/projects/
+backend/user_management/instance/
+vaults/
+ssy/
+
+# frontend scratch（构建日志等）
+frontend/_*
+
+# Playwright 测试产生的截图/日志（脚本本身保留）
+test/*.png
+test/*.txt
+
+# 外部克隆的技能参考仓库（内嵌 .git，不入库）
+test/_anthropics-skills/

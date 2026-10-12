@@ -1,0 +1,18 @@
+.skill-read-browser { min-width: 0; margin-top: 16px; }
+.skill-read-browser .ant-breadcrumb { margin: 16px 0; overflow-wrap: anywhere; }
+.skill-read-browser .ant-breadcrumb button { border: 0; background: transparent; color: var(--color-primary); font: inherit; cursor: pointer; padding: 0; }
+.skill-read-directory { border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+.skill-read-list-heading { display: flex; justify-content: space-between; padding: 12px 16px; background: var(--bg-hover); color: var(--text-secondary); }
+.skill-read-directory > button { display: flex; align-items: center; gap: 12px; width: 100%; border: 0; border-top: 1px solid var(--border-color); padding: 12px 16px; text-align: left; font: inherit; color: var(--text-primary); background: var(--bg-primary); cursor: pointer; }
+.skill-read-directory > button > span:not(.anticon) { flex: 1; overflow-wrap: anywhere; min-width: 0; }
+.skill-read-directory > button > small { flex-shrink: 0; color: var(--text-secondary); }
+.skill-read-directory > button:hover:not(:disabled) { background: var(--bg-hover); }
+.skill-read-directory > button:disabled { color: var(--text-secondary); cursor: not-allowed; }
+.skill-read-browser button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+.skill-read-toolbar { margin-bottom: 16px; }
+.skill-read-source { overflow: auto; max-height: 60vh; padding: 12px 0; background: var(--bg-hover); font-size: 13px; line-height: 1.65; }
+.skill-read-source > div { display: flex; }
+.skill-read-source > div > span { flex: 0 0 48px; text-align: right; padding-right: 12px; user-select: none; color: var(--text-tertiary); }
+.skill-read-source code { white-space: pre; }
+.skill-read-markdown { line-height: 1.7; overflow-wrap: anywhere; }
+.skill-read-markdown pre, .skill-read-markdown table { max-width: 100%; overflow: auto; display: block; }
