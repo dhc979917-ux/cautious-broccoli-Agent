@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="480" viewBox="0 0 1600 480" fill="none">
+  <title>TaskPilot 企业级 AI Agent 平台</title>
+  <desc>深蓝与青绿渐变品牌横幅，展示对话、技能、知识和工具的连接。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="480" gradientUnits="userSpaceOnUse"><stop stop-color="#0B1220"/><stop offset=".65" stop-color="#102B36"/><stop offset="1" stop-color="#164E50"/></linearGradient>
+    <linearGradient id="accent" x1="82" y1="160" x2="740" y2="255" gradientUnits="userSpaceOnUse"><stop stop-color="#F0FDFA"/><stop offset="1" stop-color="#5EEAD4"/></linearGradient>
+    <linearGradient id="line" x1="1030" y1="90" x2="1490" y2="400" gradientUnits="userSpaceOnUse"><stop stop-color="#5EEAD4"/><stop offset="1" stop-color="#818CF8"/></linearGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M48 0H0V48" stroke="#FFFFFF" stroke-opacity=".04"/></pattern>
+  </defs>
+  <rect width="1600" height="480" rx="24" fill="url(#bg)"/>
+  <rect width="1600" height="480" rx="24" fill="url(#grid)"/>
+  <circle cx="1270" cy="240" r="170" stroke="#5EEAD4" stroke-opacity=".12"/>
+  <circle cx="1270" cy="240" r="126" stroke="#5EEAD4" stroke-opacity=".1" stroke-dasharray="5 12"/>
+  <g font-family="Arial, PingFang SC, Microsoft YaHei, sans-serif">
+    <rect x="80" y="64" width="322" height="34" rx="17" fill="#5EEAD4" fill-opacity=".08" stroke="#5EEAD4" stroke-opacity=".22"/>
+    <circle cx="101" cy="81" r="4" fill="#5EEAD4"/>
+    <text x="118" y="86" fill="#99F6E4" font-size="12" letter-spacing="2">ENTERPRISE AI AGENT PLATFORM</text>
+    <text x="80" y="207" fill="url(#accent)" font-size="92" font-weight="700" letter-spacing="-3">TaskPilot</text>
+    <text x="85" y="271" fill="#ECFDF5" font-size="34" font-weight="500" letter-spacing="3">让智能体，走进真实工作流。</text>
+    <text x="85" y="319" fill="#A4B6CA" font-size="18">对话 · 技能 · 知识 · 工具 · 企业治理</text>
+    <path d="M85 357H835" stroke="#5EEAD4" stroke-opacity=".18"/>
+    <text x="85" y="398" fill="#B2C8D4" font-size="14" letter-spacing="2">AGENTSCOPE 2.0</text>
+    <text x="297" y="398" fill="#5EEAD4" font-size="14">/</text>
+    <text x="330" y="398" fill="#B2C8D4" font-size="14" letter-spacing="2">FASTAPI</text>
+    <text x="455" y="398" fill="#5EEAD4" font-size="14">/</text>
+    <text x="490" y="398" fill="#B2C8D4" font-size="14" letter-spacing="2">REACT + TYPESCRIPT</text>
+    <g stroke="url(#line)" stroke-opacity=".6" stroke-width="2"><path d="M1268 224L1120 120M1280 227L1440 150M1265 259L1110 351M1280 258L1432 348"/></g>
+    <rect x="1208" y="181" width="124" height="124" rx="30" fill="#142F3D" stroke="#5EEAD4" stroke-opacity=".6"/>
+    <path d="M1270 200L1279 231L1307 241L1279 251L1270 282L1261 251L1233 241L1261 231Z" fill="url(#line)"/>
+    <g fill="#142C39" stroke="#6C9EAA" stroke-opacity=".4"><rect x="1050" y="88" width="140" height="65" rx="16"/><rect x="1368" y="114" width="140" height="65" rx="16"/><rect x="1040" y="319" width="140" height="65" rx="16"/><rect x="1360" y="317" width="140" height="65" rx="16"/></g>
+    <g fill="#D5F4EC" font-size="17" text-anchor="middle"><text x="1120" y="128">对话 CHAT</text><text x="1438" y="154">技能 SKILLS</text><text x="1110" y="359">知识 RAG</text><text x="1430" y="357">工具 MCP</text></g>
+  </g>
+</svg>
