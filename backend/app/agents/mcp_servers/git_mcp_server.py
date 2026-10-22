@@ -1,4 +1,4 @@
-"""本地 Git MCP server（stdio）：把本机 git 能力以只读检视工具暴露给 Agent。
+﻿"""本地 Git MCP server（stdio）：把本机 git 能力以只读检视工具暴露给 Agent。
 
 定位：补齐六件套里缺失的 git 工具。先只提供只读检视类命令（status/log/diff/
 show/branch/blame 摘要），写操作（add/commit/push）不进第一版——Agent 直接写
@@ -10,9 +10,13 @@ args=["<backend>/app/agents/mcp_servers/git_mcp_server.py"]。
 """
 import os
 import subprocess
-from mcp.server.fastmcp import FastMCP
+# MCP SDK 双版本兼容（1.x FastMCP / 2.x MCPServer）
+try:
+    from mcp.server.fastmcp import FastMCP as _MCP
+except Exception:
+    from mcp.server.mcpserver import MCPServer as _MCP
 
-mcp = FastMCP("git")
+mcp = _MCP("git")
 
 # 与 backend 工具输出截断同策略：保头尾、省中间
 _HEAD = 6000

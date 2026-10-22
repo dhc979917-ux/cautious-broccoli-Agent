@@ -1,4 +1,4 @@
-"""邮件 MCP server（stdio）：即插即用的个人邮箱查收/阅读/回复能力。
+﻿"""邮件 MCP server（stdio）：即插即用的个人邮箱查收/阅读/回复能力。
 
 凭据来源：平台在构建 Agent 时把当前用户在"个人信息"中配置的邮箱账号/密码
 通过环境变量 EMAIL_MCP_USER / EMAIL_MCP_PASS 注入本子进程（每用户独立构建、
@@ -18,7 +18,11 @@ if _BACKEND not in sys.path:
     sys.path.insert(0, _BACKEND)
 os.chdir(_BACKEND)
 
-from mcp.server.fastmcp import FastMCP  # noqa: E402
+# MCP SDK 双版本兼容（1.x FastMCP / 2.x MCPServer）
+try:
+    from mcp.server.fastmcp import FastMCP as _MCP
+except Exception:
+    from mcp.server.mcpserver import MCPServer as _MCP  # noqa: E402
 
 from app.core.email_core import (  # noqa: E402
     MailAccount,
@@ -63,7 +67,7 @@ def _account():
 INSTRUCTIONS = """邮件处理助手：查收→阅读→按 ABCD 四选项决策→执行/回复。
 详细流程见 check_emails / read_email / reply_email 三个工具的描述。"""
 
-mcp = FastMCP("email", instructions=INSTRUCTIONS)
+mcp = _MCP("email", instructions=INSTRUCTIONS)
 
 
 @mcp.tool()

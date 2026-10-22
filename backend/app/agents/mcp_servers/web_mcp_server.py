@@ -1,4 +1,4 @@
-"""本地 Web MCP server（stdio）：给 Agent 提供浏览器式的网页读取能力。
+﻿"""本地 Web MCP server（stdio）：给 Agent 提供浏览器式的网页读取能力。
 
 定位：补齐六件套里缺失的 browser 工具。第一版做"抓取 + 正文提取"（适合
 查文档、读文章、看接口响应）；不做 JS 渲染与交互。需要真·浏览器自动化
@@ -12,9 +12,13 @@ import re
 from html.parser import HTMLParser
 
 import httpx
-from mcp.server.fastmcp import FastMCP
+# MCP SDK 双版本兼容（1.x FastMCP / 2.x MCPServer）
+try:
+    from mcp.server.fastmcp import FastMCP as _MCP
+except Exception:
+    from mcp.server.mcpserver import MCPServer as _MCP
 
-mcp = FastMCP("web")
+mcp = _MCP("web")
 
 _MAX_BODY_BYTES = 3 * 1024 * 1024
 _MAX_TEXT_CHARS = 20000

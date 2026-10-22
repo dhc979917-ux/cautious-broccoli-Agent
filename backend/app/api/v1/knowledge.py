@@ -718,6 +718,88 @@ async def get_backlinks(doc_id: int, current_user: User = Depends(get_current_us
     return GraphService(db).backlinks(doc_id)
 
 
+@router.get("/docs/{doc_id}/assist")
+async def assist_doc(doc_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """AI 帮读：文档摘要 + 关键要点 + 相关文档推荐。
+
+    网关可用时走 LLM（摘要/要点/相关问题），无网关时降级为
+    本地关键句抽取（首段+标题结构），功能永不 404。
+    """
+    svc = KnowledgeService(db)
+    doc = svc.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="文档不存在")
+    kb = svc.get_kb(doc.kb_id)
+    if not kb or not _can_view(kb, current_user):
+        raise HTTPException(status_code=403, detail="无权访问")
+    # 取文档全文（md 替身）
+    content = None
+    if doc.is_markdown and kb.vault_dir and doc.vault_path:
+        try:
+            with open(_vault_path_safe(kb, doc.vault_path), "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+        except Exception:
+            content = None
+    if not content:
+        from app.services.knowledge_service import _read_doc_bytes
+        data = _read_doc_bytes(doc)
+        content = data.decode("utf-8", errors="ignore") if data else ""
+    if not content or not content.strip():
+        return {"mode": "empty", "summary": "", "points": [], "questions": [], "related": []}
+    content = content[:60000]
+
+    from app.config import settings
+    summary, points, questions = "", [], []
+    mode = "local"
+    if settings.AI_GATEWAY_API_KEY and settings.AI_GATEWAY_BASE_URL:
+        try:
+            import httpx
+            prompt = (
+                "你是文档帮读助手。阅读下面的文档，输出 JSON（不要代码块围栏）："
+                '{"summary": "3~5句中文摘要", "points": ["关键要点，最多6条"], '
+                '"questions": ["读完可能想问的问题，最多3条"]}\n\n文档：\n' + content[:24000]
+            )
+            async with httpx.AsyncClient(timeout=60) as client:
+                resp = await client.post(
+                    settings.AI_GATEWAY_BASE_URL.rstrip("/") + "/chat/completions",
+                    headers={"Authorization": f"Bearer {settings.AI_GATEWAY_API_KEY}"},
+                    json={"model": settings.MODEL_NAME,
+                          "messages": [{"role": "user", "content": prompt}],
+                          "temperature": 0.2},
+                )
+                resp.raise_for_status()
+                import json as _json
+                import re as _re
+                raw = resp.json()["choices"][0]["message"]["content"].strip()
+                m = _re.search(r"\{.*\}", raw, _re.S)
+                data = _json.loads(m.group(0)) if m else {}
+                summary = str(data.get("summary") or "")[:2000]
+                points = [str(p)[:300] for p in (data.get("points") or [])][:6]
+                questions = [str(q)[:300] for q in (data.get("questions") or [])][:3]
+                mode = "llm"
+        except Exception as e:
+            logger.warning(f"[帮读] LLM 失败，降级本地抽取: {e}")
+    if mode == "local":
+        # 本地降级：首段 + 标题结构当摘要
+        lines = [l for l in content.split("\n") if l.strip()]
+        heads = [l.lstrip("# ").strip() for l in lines if l.startswith("#")][:12]
+        first_para = next((l for l in lines if not l.startswith("#") and len(l) > 30), "")
+        summary = first_para[:500] or (heads[0] if heads else content[:200])
+        points = [f"章节：{h}" for h in heads[1:8]] or [content[:200]]
+        questions = []
+
+    # 相关文档：同库同标签/同标题关键词的一跳邻居优先
+    related = []
+    try:
+        links = GraphService(db).backlinks(doc_id)
+        related = [{"title": l.get("title"), "doc_id": l.get("doc_id")}
+                   for l in (links or [])[:5]]
+    except Exception:
+        pass
+    return {"mode": mode, "summary": summary, "points": points,
+            "questions": questions, "related": related}
+
+
 @router.get("/docs/{doc_id}/chunk/{chunk_index}")
 async def get_chunk(doc_id: int, chunk_index: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     svc = KnowledgeService(db)

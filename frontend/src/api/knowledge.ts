@@ -86,6 +86,10 @@ export async function retryDocument(docId: number) { return (await request.post(
 export async function updateDocContent(docId: number, content: string): Promise<KnowledgeDocInfo & { content?: string | null }> { return (await request.put(`/knowledge/docs/${docId}/content`, { content })).data }
 export async function searchKnowledge(query: string, kbIds?: number[], topK = 5) { return (await request.post('/knowledge/search', { query, kb_ids: kbIds, top_k: topK })).data }
 
+// AI 帮读：文档摘要+要点+相关问题+相关文档（无网关时后端降级本地抽取）
+export interface DocAssist { mode: 'llm' | 'local' | 'empty'; summary: string; points: string[]; questions: string[]; related: { title?: string; doc_id?: number }[] }
+export async function assistDocument(docId: number): Promise<DocAssist> { return (await request.get(`/knowledge/docs/${docId}/assist`)).data }
+
 // ---- Obsidian 模块 ----
 export async function linkVault(kbId: number, vaultDir: string) { return (await request.post(`/knowledge/bases/${kbId}/link-vault`, { vault_dir: vaultDir })).data }
 export async function importVault(kbId: number, file: File) {
