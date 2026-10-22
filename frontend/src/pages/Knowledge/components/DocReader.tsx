@@ -124,6 +124,15 @@ export default function DocReader({ doc, backlinks, onWikilink, canEdit, canDele
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
+              img: ({ src, alt }: any) => {
+                const s = String(src || '')
+                if (s && !/^(https?:|data:|wikilink:)/.test(s) && doc?.kb_id) {
+                  const token = useAuthStore.getState().token
+                  const url = `/api/v1/knowledge/vault-files/${doc.kb_id}?path=${encodeURIComponent(s)}&token=${token}`
+                  return <img src={url} alt={alt || ''} style={{ maxWidth: '100%', borderRadius: 4 }} />
+                }
+                return <img src={s} alt={alt || ''} style={{ maxWidth: '100%' }} />
+              },
               a: ({ node, href, children, ...rest }: any) => {
                 if (href && href.startsWith('wikilink:')) {
                   const name = decodeURIComponent(href.slice('wikilink:'.length))

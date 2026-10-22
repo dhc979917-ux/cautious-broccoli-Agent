@@ -266,12 +266,14 @@ class PgVectorStore(VectorStoreBase):
                 raise
 
         candidates = {}
-        for weight, ranked in ((0.7, vec_rows), (0.3, lexical_rows)):
+        # RRF 倒数排名融合（v2）：两路各自排名，score = Σ 60/(60+名次)。
+        # 相比旧的 0.7/0.3 加权，对向量分与 ts_rank 两种量纲天然免疫。
+        for ranked in (vec_rows, lexical_rows):
             for rank, row in enumerate(ranked, 1):
                 row_id = row[0]
                 if row_id not in candidates:
                     candidates[row_id] = [row, 0.0]
-                candidates[row_id][1] += weight * 60.0 / (60 + rank)
+                candidates[row_id][1] += 60.0 / (60 + rank)
 
         results = []
         for row, combined in sorted(candidates.values(), key=lambda item: item[1], reverse=True)[:top_k]:

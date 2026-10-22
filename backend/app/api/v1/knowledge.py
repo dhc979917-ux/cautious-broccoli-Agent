@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.database import SessionLocal
-from app.core.deps import get_current_user, has_perm
+from app.core.deps import get_current_user, has_perm, get_user_from_query_token
 from app.core.security import decode_token
 from app.models.user import User
 from app.models.knowledge import KnowledgeBase, KnowledgeDocument, KnowledgeLink
@@ -568,6 +568,31 @@ async def get_source_file(kb_id: int, filename: str,
     if not os.path.isfile(file_path):
         raise HTTPException(status_code=404, detail="文件不存在")
     return FileResponse(file_path, filename=filename)
+
+
+_VAULT_IMG_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
+
+
+@router.get("/vault-files/{kb_id}")
+async def get_vault_file(kb_id: int, path: str = Query(...), token: str = Query(...),
+                         db: Session = Depends(get_db)):
+    """Serve vault 内嵌图片（media/）。
+
+    笔记 md 里的 ![图像](media/x.png) 由 <img> 标签加载，浏览器无法带
+    Authorization 头，因此走 ?token= 查询参数鉴权（与文件预览同模式）。"""
+    user = await get_user_from_query_token(token, db)
+    kb = _get_kb_or_404(db, kb_id)
+    if not _can_view(kb, user):
+        raise HTTPException(status_code=403, detail="无权访问该知识库")
+    rel = (path or "").replace("\\", "/").lstrip("/")
+    if not rel.startswith("media/"):
+        raise HTTPException(status_code=400, detail="仅允许访问 media/ 内的图片资源")
+    full = _vault_path_safe(kb, rel)
+    if not os.path.isfile(full):
+        raise HTTPException(status_code=404, detail="文件不存在")
+    if os.path.splitext(full)[1].lower() not in _VAULT_IMG_EXTS:
+        raise HTTPException(status_code=400, detail="仅支持图片资源")
+    return FileResponse(full)
 
 # ===== Obsidian vault =====
 @router.post("/bases/{kb_id}/link-vault")

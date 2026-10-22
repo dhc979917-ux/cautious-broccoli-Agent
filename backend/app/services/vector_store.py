@@ -27,7 +27,11 @@ from agentscope.rag import (
     Chunk,
 )
 from agentscope.message import TextBlock
-from app.services.knowledge.search_tokens import lexemes
+from app.services.knowledge.search_tokens import (
+    TOKENIZER_VERSION,
+    document_terms,
+    lexemes,
+)
 
 
 def _pack(vector) -> bytes:
@@ -79,24 +83,43 @@ class SqliteVectorStore(VectorStoreBase):
                     total_chunks UNINDEXED,
                     metadata UNINDEXED
                 );
+                CREATE TABLE IF NOT EXISTS fts_meta (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
                 """
             )
             self._conn.commit()
+            # 分词版本标记：版本变化（如 bigram→jieba）才全量重建 FTS，
+            # 替代旧版 O(n) 内容比对——启动即 O(1) 判定，重建只发生一次。
+            row = self._conn.execute(
+                "SELECT value FROM fts_meta WHERE key = 'tokenizer_version'"
+            ).fetchone()
+            current_version = row[0] if row else None
             counts = self._conn.execute(
                 "SELECT (SELECT count(*) FROM chunks), (SELECT count(*) FROM fts_chunks)"
             ).fetchone()
-            mismatch = self._conn.execute(
-                "SELECT 1 FROM chunks c LEFT JOIN fts_chunks f ON c.id = f.rowid "
-                "WHERE f.rowid IS NULL OR f.content != c.content "
-                "OR f.document_id != c.document_id LIMIT 1"
-            ).fetchone()
-            if counts[0] != counts[1] or mismatch:
+            if counts[0] != counts[1] or current_version != TOKENIZER_VERSION:
                 self._conn.execute("DELETE FROM fts_chunks")
                 self._conn.execute(
                     "INSERT INTO fts_chunks(rowid, content, collection, document_id, "
                     "source, chunk_index, total_chunks, metadata) "
-                    "SELECT id, content, collection, document_id, source, "
+                    "SELECT id, '', collection, document_id, source, "
                     "chunk_index, total_chunks, metadata FROM chunks"
+                )
+                # 逐行写入分词结果（空格连接）：FTS5 默认按空白切词，
+                # 中文必须预分词才能被 MATCH 命中
+                for row_id, content in self._conn.execute(
+                    "SELECT id, content FROM chunks"
+                ).fetchall():
+                    self._conn.execute(
+                        "UPDATE fts_chunks SET content = ? WHERE rowid = ?",
+                        (document_terms(content or ""), row_id),
+                    )
+                self._conn.execute(
+                    "INSERT OR REPLACE INTO fts_meta (key, value) "
+                    "VALUES ('tokenizer_version', ?)",
+                    (TOKENIZER_VERSION,),
                 )
                 self._conn.commit()
 
@@ -156,10 +179,12 @@ class SqliteVectorStore(VectorStoreBase):
                         "chunk_index, total_chunks, metadata, vector) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                         row,
                     )
+                    # FTS 列存分词结果（空格连接），与 _bootstrap 重建口径一致
                     cursor.execute(
                         "INSERT INTO fts_chunks (rowid, content, collection, document_id, source, "
                         "chunk_index, total_chunks, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                        (cursor.lastrowid, row[2], row[0], row[1], row[3], row[4], row[5], row[6]),
+                        (cursor.lastrowid, document_terms(row[2]), row[0], row[1],
+                         row[3], row[4], row[5], row[6]),
                     )
                 self._conn.commit()
             except Exception:
@@ -204,11 +229,15 @@ class SqliteVectorStore(VectorStoreBase):
         return True
 
     def _fts_search(self, collection, query_text, top_k, metadata_filter):
-        """FTS5 keyword search returning {rowid: bm25_normalized_score}."""
-        tokens = [token for token in lexemes(query_text)[:32] if token.isascii()]
+        """FTS5 keyword search returning {rowid: bm25_normalized_score}.
+
+        v2：查询侧同样走分词（lexemes 已是 jieba 词级），中文不再被
+        isascii 过滤掉；未分词环境自动回退 bigram。
+        """
+        tokens = lexemes(query_text)[:32]
         if not tokens:
             return {}
-        match_q = " OR ".join('"' + token + '"' for token in tokens)
+        match_q = " OR ".join('"' + token.replace('"', '') + '"' for token in tokens)
         try:
             with self._lock:
                 rows = self._conn.execute(
@@ -233,11 +262,10 @@ class SqliteVectorStore(VectorStoreBase):
             ).fetchall()
         if not rows:
             return []
-        fts_scores = self._fts_search(collection, query_text, top_k, metadata_filter) if query_text else {}
-        chinese_terms = [token for token in lexemes(query_text or "")[:32] if not token.isascii()]
         qv = np.asarray(query_vector, dtype=np.float32)
         qnorm = np.linalg.norm(qv) or 1.0
-        results = []
+        # 第一路：向量余弦（全量打分，构成完整排名）
+        scored = []  # (row_id, vec_score, bundle)
         for row_id, doc_id, content, source, cidx, tcnt, meta_raw, blob in rows:
             try:
                 meta = json.loads(meta_raw) if meta_raw else {}
@@ -249,19 +277,49 @@ class SqliteVectorStore(VectorStoreBase):
             if vec.shape != qv.shape:
                 continue
             norm = np.linalg.norm(vec) or 1.0
-            vec_score = float(np.dot(qv, vec) / (qnorm * norm))
-            lexical = fts_scores.get(row_id, 0.0)
+            scored.append((
+                row_id, float(np.dot(qv, vec) / (qnorm * norm)),
+                (doc_id, content, source, cidx, tcnt, meta),
+            ))
+        if not scored:
+            return []
+        # 第二路：词面（FTS5 分词命中 + 中文子串兜底），只保留 >0 的候选
+        fts_scores = self._fts_search(collection, query_text, top_k, metadata_filter) if query_text else {}
+        chinese_terms = [token for token in lexemes(query_text or "")[:32] if not token.isascii()]
+
+        def _lexical(row_id: int, content: str) -> float:
+            score = fts_scores.get(row_id, 0.0)
             if chinese_terms:
-                lexical = max(lexical, sum(term in content for term in chinese_terms) / len(chinese_terms))
-            combined = 0.7 * vec_score + 0.3 * lexical if lexical else vec_score
-            chunk = Chunk(
-                content=TextBlock(text=content),
-                source=source,
-                chunk_index=cidx,
-                total_chunks=tcnt,
-                metadata=meta,
+                score = max(score, sum(term in content for term in chinese_terms) / len(chinese_terms))
+            return score
+
+        # RRF 倒数排名融合：score = Σ 60/(60+名次)。两路各自排名，
+        # 只看名次不看原始分——对向量/BM25 两种量纲天然免疫。
+        rrf: dict[int, float] = {}
+        for rank, (row_id, _, _) in enumerate(sorted(scored, key=lambda x: x[1], reverse=True), 1):
+            rrf[row_id] = rrf.get(row_id, 0.0) + 60.0 / (60 + rank)
+        lexical_ranked = sorted(
+            ((row_id, _lexical(row_id, bundle[1])) for row_id, _, bundle in scored
+             if _lexical(row_id, bundle[1]) > 0),
+            key=lambda x: x[1], reverse=True,
+        )
+        for rank, (row_id, _) in enumerate(lexical_ranked, 1):
+            rrf[row_id] = rrf.get(row_id, 0.0) + 60.0 / (60 + rank)
+        bundles = {row_id: bundle for row_id, _, bundle in scored}
+        results = [
+            VectorSearchResult(
+                score=rrf[row_id],
+                document_id=bundle[0],
+                chunk=Chunk(
+                    content=TextBlock(text=bundle[1]),
+                    source=bundle[2],
+                    chunk_index=bundle[3],
+                    total_chunks=bundle[4],
+                    metadata=bundle[5],
+                ),
             )
-            results.append(VectorSearchResult(score=combined, document_id=doc_id, chunk=chunk))
+            for row_id, bundle in bundles.items()
+        ]
         results.sort(key=lambda r: r.score, reverse=True)
         return results[:top_k]
 

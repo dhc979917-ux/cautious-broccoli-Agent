@@ -227,6 +227,40 @@ class Settings(BaseSettings):
     VECTOR_DB_PATH: str = str(BASE_DIR / "vector.db")
     MAX_KNOWLEDGE_FILE_MB: int = 0  # 0 = 不限制单文件大小（个人库无配额）
 
+     # ===== 知识库检索芯（v2：jieba 分词 + RRF + rerank） =====
+     # 重排序：走统一网关（Cohere 风格 POST /rerank）。关闭或调用失败时
+     # 自动回退融合排序，检索永不中断。模型示例：gte-rerank / bge-reranker
+    KB_RERANK_ENABLED: bool = False
+    KB_RERANK_MODEL: str = "gte-rerank"
+    KB_RERANK_TIMEOUT_SECONDS: int = 8
+     # 分词：jieba 未安装时自动回退 bigram（见 knowledge/search_tokens.py）
+     # SQLite FTS 按分词版本标记自动重建；PG 存量需 reindex 才吃到新分词
+
+     # ===== 扫描版 PDF OCR 前置层（v2.5） =====
+     # 开启后：文字层稀疏的 PDF（<50字符/页）自动走本地 RapidOCR 提取。
+     # 未安装 rapidocr-onnxruntime 时自动视为关闭。CPU 推理每页约 1.5s。
+    PDF_OCR_ENABLED: bool = True
+
+     # ===== 多模态入库（阶段一：模态前置层） =====
+     # 总开关：关闭时上传图像/音频直接拒绝（failed 带原因），行为同改造前
+    MEDIA_INGEST_ENABLED: bool = False
+     # 视觉描述模型（OpenAI 兼容 chat + image_url，如 qwen-vl-max）
+    MEDIA_VLM_MODEL: str = ""
+     # 语音转写模型（whisper 兼容 /audio/transcriptions，如 paraformer-v2）
+    MEDIA_ASR_MODEL: str = ""
+     # 媒体文件上限（MB）
+    MEDIA_MAX_MB: int = 100
+     # 音频转写分节窗口（秒）：时间戳是"检索命中后回放"的锚点
+    AUDIO_SECTION_SECONDS: int = 120
+
+     # ===== 文档内嵌图片（PDF/Word/PPT/Excel 图文混排） =====
+     # 抽取保存：图片存 vault/media/ 并在笔记原位引用（零模型成本）
+    DOC_IMAGE_EXTRACT_ENABLED: bool = False
+     # VLM 理解：逐图生成描述文本随正文入库（关键词/语义检索均可命中；耗配额）
+    DOC_IMAGE_VLM_ENABLED: bool = False
+     # 单文档最多处理多少张图（按字节去重后；0=不限）
+    DOC_IMAGE_MAX_PER_DOC: int = 30
+
      # 文件中心：每用户存储配额（MB），上传前校验；.env 可覆盖
     FILE_QUOTA_MB: int = 1024
 

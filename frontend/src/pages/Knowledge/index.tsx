@@ -65,7 +65,8 @@ function filterTree(nodes: TreeNode[], q: string): TreeNode[] {
 
 const STATUS_META: Record<string, { color: string; label: string }> = {
  uploading: { color: 'default', label: '上传中' }, parsing: { color: 'processing', label: '解析中' },
-  converting: { color: 'processing', label: '转换中' }, indexing: { color: 'processing', label: '向量化' },
+  converting: { color: 'processing', label: '转换中' }, indexing: { color: 'processing', label: '索引中' },
+  extracting: { color: 'processing', label: '提取中' },
   converted: { color: 'blue', label: '已转换' }, ready: { color: 'success', label: '就绪' },
   failed: { color: 'error', label: '失败' },
   canceling: { color: 'warning', label: '取消中' }, canceled: { color: 'default', label: '已取消' },

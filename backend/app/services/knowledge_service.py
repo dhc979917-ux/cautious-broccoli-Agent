@@ -489,13 +489,25 @@ class KnowledgeService:
                 return
             ext = os.path.splitext(doc.filename)[1].lower()
 
-            if ext in CONVERTIBLE_EXTS:
+            # 多模态入库（阶段一）：图像/音频先转 Markdown 替身，之后与
+            # 文档转换共用同一段"索引+向量化"收尾，管道零重复。
+            from app.services.knowledge import media_ingest as _media
+            is_media_file = _media.modality_of(doc.filename) is not None
+            if is_media_file and not _media.media_enabled():
+                doc.status = "failed"
+                doc.error = "暂不支持该媒体类型（多模态入库未启用）"
+                db.commit()
+                return
+
+            if ext in CONVERTIBLE_EXTS or is_media_file:
                 # New pipeline: convert to MD, index, vectorize
                 try:
-                    doc.status = "converting"
+                    doc.status = "extracting" if is_media_file else "converting"
                     db.commit()
                     if progress:
-                        progress.update("转换中", 10, "抽取并改写文档", status="converting")
+                        progress.update("提取中" if is_media_file else "转换中", 10,
+                                        "提取媒体内容" if is_media_file else "抽取并改写文档",
+                                        status="extracting" if is_media_file else "converting")
 
                     from app.services.knowledge.source_to_md_service import SourceToMdService
                     from app.services.knowledge.markdown_indexer import MarkdownIndexer
@@ -512,17 +524,29 @@ class KnowledgeService:
 
                     existing_titles = _get_existing_titles(db, kb.id)
 
-                    svc = SourceToMdService()
-                    md_path = await svc.convert_to_md_async(
-                        source_path=path,
-                        vault_dir=vault_dir,
-                       original_filename=doc.filename,
-                        stored_name=doc.stored_name,
-                        existing_titles=existing_titles,
-                        kb_id=doc.kb_id,
-                        on_progress=progress.report if progress else None,
-                        should_cancel=(progress.check_cancel if progress else None),
-                    )
+                    if is_media_file:
+                        # 媒体路径：VLM 描述 / ASR 转写 → md 替身（原件存档 media/）
+                        md_path = await _media.convert_media_to_md_async(
+                            source_path=path,
+                            vault_dir=vault_dir,
+                            original_filename=doc.filename,
+                            stored_name=doc.stored_name,
+                            kb_id=doc.kb_id,
+                            on_progress=progress.report if progress else None,
+                            should_cancel=(progress.check_cancel if progress else None),
+                        )
+                    else:
+                        svc = SourceToMdService()
+                        md_path = await svc.convert_to_md_async(
+                            source_path=path,
+                            vault_dir=vault_dir,
+                           original_filename=doc.filename,
+                           stored_name=doc.stored_name,
+                           existing_titles=existing_titles,
+                           kb_id=doc.kb_id,
+                           on_progress=progress.report if progress else None,
+                           should_cancel=(progress.check_cancel if progress else None),
+                        )
 
                     # Index the new MD file (creates knowledge_documents + knowledge_links)
                     if progress:
@@ -689,7 +713,9 @@ class KnowledgeService:
                     progress.update("向量化", 10, "读取笔记内容", status="indexing")
                 from agentscope.rag import Chunk, VectorRecord
                 from agentscope.message import TextBlock
-                from app.services.knowledge.sentence_chunker import chunk_text
+                # 表格感知切块（v2.6）：表格原子性+超长表行边界+面包屑；
+                # 纯文本输入时行为与 sentence_chunker 完全一致
+                from app.services.knowledge.table_aware_chunker import chunk_text
                 # 源文档转换的笔记优先切"清洗后原文"（旁挂 .raw.txt，检索质量更高）；
                 # 普通手写笔记没有旁挂文件，直接切 md 本身。
                 raw_path = os.path.splitext(path)[0] + ".raw.txt"
@@ -801,9 +827,16 @@ class KnowledgeService:
 
     # ---- 检索 ----
     async def search(self, query: str, kb_ids: List[int], top_k: int = 5) -> List[dict]:
-        """跨指定 KB 检索，返回 [{kb_id, document_id, filename, chunk_index, text, score}]"""
+        """在指定 KB 集合内检索，返回 [{kb_id, document_id, filename, chunk_index, text, score}]
+
+        检索芯 v2：召回扩池（rerank 启用时取 4 倍候选）→ RRF 融合（store 内）→
+        交叉编码器 rerank 精排 → 截 top_k。rerank 不可用时行为与旧版一致。
+        """
         if not query.strip() or not kb_ids:
             return []
+        from app.services.knowledge import rerank as rerank_mod
+        use_rerank = rerank_mod.available()
+        recall_k = top_k * 4 if use_rerank else top_k
         qvec = (await embed_texts([query.strip()]))[0]
         store = get_vector_store()
         results = []
@@ -812,6 +845,10 @@ class KnowledgeService:
             try:
                 if not await store.has_collection(coll):
                     continue
+                hits = await store.search(coll, qvec, top_k=recall_k, query_text=query)
+            except Exception as e:
+                logger.error(f"[知识库] 检索失败 kb={kb_id}: {e}")
+                continue
                 hits = await store.search(coll, qvec, top_k=top_k, query_text=query)
             except Exception as e:
                 logger.error(f"[知识库] 检索失败 kb={kb_id}: {e}")
@@ -857,6 +894,13 @@ class KnowledgeService:
                                              (1.0 + 0.03 * min(link_counts[key], 3)))), 4)
         except Exception:
             pass
+
+        # 出口精排：交叉编码器 rerank（不可用时等价于旧版排序）
+        if use_rerank and len(results) > 1:
+            try:
+                return await rerank_mod.apply_rerank(query, results, top_k)
+            except Exception as e:
+                logger.warning(f"[知识库] rerank 失败，回退融合排序: {e}")
 
         results.sort(key=lambda x: x["score"], reverse=True)
         return results[:top_k]

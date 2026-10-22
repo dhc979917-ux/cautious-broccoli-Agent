@@ -23,6 +23,7 @@ from typing import Callable, List, Optional
 from app.config import settings
 from app.services.model_gateway import endpoint, headers as gateway_headers
 from app.services.knowledge.progress import KnowledgeImportCancelled
+from app.services.knowledge.doc_images import expand_placeholders, make_image_sink
 
 COMPAT_URL = endpoint("chat/completions")
 # 单次改写超过该字符数时按段落边界分段顺序改写（全文覆盖，不截断、不丢内容）
@@ -125,7 +126,8 @@ class SourceToMdService:
         """
         ext = os.path.splitext(original_filename)[1].lower()
         self._check_extractor_available(ext)
-        raw_md = self._extract_to_markdown(source_path, original_filename, ext)
+        sink = make_image_sink(vault_dir)
+        raw_md = self._extract_to_markdown(source_path, original_filename, ext, sink=sink)
         if not raw_md.strip():
             raise ValueError("Document extraction yielded no content")
 
@@ -148,6 +150,8 @@ class SourceToMdService:
         tags = optimized.get("tags", [])
         summary = optimized.get("summary", "")
         enhanced_body = optimized.get("body") or cleaned
+        # 图片占位符展开：md 里是 ![图像]+描述块（阅读可见）
+        enhanced_body = expand_placeholders(enhanced_body, sink.images if sink else {}, for_raw=False)
 
         frontmatter = self._build_frontmatter(
             title=title,
@@ -160,7 +164,9 @@ class SourceToMdService:
         source_link = self._source_link(stored_name, ext, kb_id)
         full_md = frontmatter + enhanced_body + source_link
 
-        return self._save_markdown(vault_dir, original_filename, full_md, cleaned)
+        # 旁挂原文：占位符展开为纯文本块（进入切块/向量化/FTS，可被检索命中）
+        cleaned_raw = expand_placeholders(cleaned, sink.images if sink else {}, for_raw=True)
+        return self._save_markdown(vault_dir, original_filename, full_md, cleaned_raw)
 
     async def convert_to_md_async(
         self,
@@ -184,8 +190,14 @@ class SourceToMdService:
         if should_cancel and should_cancel():
             raise KnowledgeImportCancelled()
         self._check_extractor_available(ext)
+
+        def _img_progress(n: int) -> None:
+            if on_progress:
+                on_progress("理解图片", 16, f"已理解 {n} 张文档图片")
+
+        sink = make_image_sink(vault_dir, on_image=_img_progress if on_progress else None)
         raw_md = await asyncio.to_thread(
-            self._extract_to_markdown, source_path, original_filename, ext
+            self._extract_to_markdown, source_path, original_filename, ext, sink
         )
         if should_cancel and should_cancel():
             raise KnowledgeImportCancelled()
@@ -221,6 +233,10 @@ class SourceToMdService:
         tags = optimized.get("tags", [])
         summary = optimized.get("summary", "")
         enhanced_body = optimized.get("body") or cleaned
+        # 图片占位符展开：md 里是 ![图像]+描述块（阅读可见）
+        enhanced_body = expand_placeholders(
+            enhanced_body, sink.images if sink else {}, for_raw=False
+        )
         full_md = (
             self._build_frontmatter(
                 title=title,
@@ -232,7 +248,8 @@ class SourceToMdService:
             + enhanced_body
             + self._source_link(stored_name, ext, kb_id)
         )
-        return self._save_markdown(vault_dir, original_filename, full_md, cleaned)
+        cleaned_raw = expand_placeholders(cleaned, sink.images if sink else {}, for_raw=True)
+        return self._save_markdown(vault_dir, original_filename, full_md, cleaned_raw)
 
     @staticmethod
     def _save_markdown(vault_dir: str, original_filename: str, full_md: str, cleaned: str) -> str:
@@ -289,15 +306,35 @@ class SourceToMdService:
                 f"请在部署环境安装后重试：pip install {package_name}"
             )
 
-    def _extract_to_markdown(self, path: str, filename: str, ext: str) -> str:
+    def _extract_to_markdown(self, path: str, filename: str, ext: str, sink=None) -> str:
         if ext == ".pdf":
-            return self._pdf_to_md(path)
+            # OCR 前置层：扫描版 PDF（文字层稀疏）先本地 RapidOCR 抢救正文，
+            # 有结果则直接用（跳过字号分析——OCR 文本没有字号信息）
+            try:
+                from app.config import settings
+                if getattr(settings, "PDF_OCR_ENABLED", False):
+                    from app.services.knowledge.pdf_ocr import (
+                        extract_pdf_with_ocr, is_scanned_pdf, ocr_available,
+                    )
+                    if ocr_available():
+                        scanned, pages, chars = is_scanned_pdf(path)
+                        if scanned:
+                            logger.info(
+                                f"[ocr前置] 检测到扫描版 PDF（{pages}页仅{chars}字符），走 OCR 提取: {filename}"
+                            )
+                            ocr_text = extract_pdf_with_ocr(path)
+                            if ocr_text:
+                                return ocr_text
+                            logger.warning(f"[ocr前置] OCR 无结果，回退默认提取: {filename}")
+            except Exception as e:
+                logger.warning(f"[ocr前置] 处理失败，回退默认提取: {e}")
+            return self._pdf_to_md(path, sink=sink)
         if ext in (".xlsx", ".xls", ".csv"):
-            return self._excel_to_md(path, ext)
+            return self._excel_to_md(path, ext, sink=sink)
         if ext in (".doc", ".docx"):
-            return self._doc_to_md(path)
+            return self._doc_to_md(path, sink=sink)
         if ext in (".ppt", ".pptx"):
-            return self._ppt_to_md(path)
+            return self._ppt_to_md(path, sink=sink)
         # Fallback: plain text
         try:
             with open(path, "r", encoding="utf-8", errors="ignore") as f:
@@ -305,7 +342,7 @@ class SourceToMdService:
         except Exception:
             return ""
 
-    def _pdf_to_md(self, pdf_path: str) -> str:
+    def _pdf_to_md(self, pdf_path: str, sink=None) -> str:
         """Extract PDF text via PyMuPDF, format as Markdown with heading detection."""
         try:
             import fitz
@@ -379,6 +416,15 @@ class SourceToMdService:
             blocks = page.get_text("dict")["blocks"]
             for block in blocks:
                 if block["type"] != 0:
+                    # 图片块：存档 + VLM 理解，原位置插占位符（不可用时照旧跳过）
+                    if sink is not None:
+                        ph = sink.add(
+                            block.get("image"),
+                            block.get("ext") or "png",
+                            bbox=block.get("bbox"),
+                        )
+                        if ph:
+                            parts.append(ph)
                     continue
                 for line in block["lines"]:
                     spans = line["spans"]
@@ -399,13 +445,14 @@ class SourceToMdService:
         md = re.sub(r"\n{3,}", "\n\n", md).strip()
         return md
 
-    def _excel_to_md(self, path: str, ext: str) -> str:
+    def _excel_to_md(self, path: str, ext: str, sink=None) -> str:
         """Extract Excel/CSV to Markdown tables."""
         try:
             import openpyxl
         except ImportError:
             return self._fallback_text(path)
 
+        img_placeholders: List[str] = []
         if ext == ".csv":
             import csv
             rows = []
@@ -422,6 +469,15 @@ class SourceToMdService:
                 for row in ws.iter_rows(values_only=True):
                     if any(c is not None for c in row):
                         rows.append([str(c) if c is not None else "" for c in row])
+                # 浮动图片（私有 API，尽力而为；失败静默跳过）
+                if sink is not None:
+                    for im in getattr(ws, "_images", None) or []:
+                        try:
+                            ph = sink.add(im._data(), getattr(im, "format", None) or "png")
+                            if ph:
+                                img_placeholders.append(ph)
+                        except Exception:
+                            pass
             wb.close()
 
         if not rows:
@@ -458,9 +514,13 @@ class SourceToMdService:
             md_lines.append(line)
             i += 1
 
-        return "\n".join(md_lines)
+        md = "\n".join(md_lines)
+        # 浮动图片占位符追加在末尾（不能进表格行处理，会破坏表格格式化）
+        if img_placeholders:
+            md = md.rstrip("\n") + "\n" + "\n".join(img_placeholders) + "\n"
+        return md
 
-    def _doc_to_md(self, path: str) -> str:
+    def _doc_to_md(self, path: str, sink=None) -> str:
         """Extract Word document to Markdown."""
         try:
             from docx import Document
@@ -484,6 +544,25 @@ class SourceToMdService:
                 parts.append(f"- {text}")
             else:
                 parts.append(text + "\n")
+            # 段落内嵌图片：存档 + 理解，插在所属段落之后
+            if sink is not None:
+                try:
+                    from docx.oxml.ns import qn
+                    for blip in para._p.findall(".//" + qn("a:blip")):
+                        rid = blip.get(qn("r:embed"))
+                        if not rid:
+                            continue
+                        part = doc.part.related_parts.get(rid)
+                        if part is None:
+                            continue
+                        ph = sink.add(
+                            part.blob,
+                            os.path.splitext(str(part.partname))[1].lstrip(".") or "png",
+                        )
+                        if ph:
+                            parts.append(ph)
+                except Exception as e:
+                    logger.warning(f"[source_to_md] docx 图片抽取失败: {e}")
 
         for table in doc.tables:
             parts.append("")
@@ -497,7 +576,7 @@ class SourceToMdService:
 
         return "\n".join(parts)
 
-    def _ppt_to_md(self, path: str) -> str:
+    def _ppt_to_md(self, path: str, sink=None) -> str:
         """Extract PowerPoint to Markdown."""
         try:
             from pptx import Presentation
@@ -525,6 +604,17 @@ class SourceToMdService:
                     if table.rows:
                         col_count = len(table.rows[0].cells)
                         parts.insert(-len(table.rows), "| " + " | ".join(["---"] * col_count) + " |")
+                # 幻灯片图片：存档 + 理解，插在该 shape 之后
+                if sink is not None:
+                    try:
+                        from pptx.enum.shapes import MSO_SHAPE_TYPE
+                        if getattr(shape, "shape_type", None) == MSO_SHAPE_TYPE.PICTURE:
+                            img = shape.image
+                            ph = sink.add(img.blob, img.ext or "png")
+                            if ph:
+                                parts.append(ph)
+                    except Exception as e:
+                        logger.warning(f"[source_to_md] pptx 图片抽取失败: {e}")
         return "\n".join(parts)
 
     def _fallback_text(self, path: str) -> str:
@@ -635,6 +725,9 @@ class SourceToMdService:
             "(e.g. lines starting with 'Fig.' or 'Figure' or 'Table' followed by descriptions).\n"
             "   - Keep all substantive technical content: abstract, introduction, methodology, "
             "results, discussion, conclusion.\n"
+            "   - CRITICAL: Preserve every '<!-- IMG:... -->' marker EXACTLY where it appears, "
+            "on its own line, unchanged. These markers reference embedded images; do NOT "
+            "remove, merge, reorder, or modify them.\n"
             "   - Use proper heading hierarchy (##, ###).\n"
             "   - Fix broken paragraphs, merged words, and formatting artifacts from PDF extraction.\n"
             "   - Insert [[wikilinks]] to relevant existing notes where natural. Only link "

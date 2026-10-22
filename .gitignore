@@ -116,3 +116,6 @@ test/*.txt
 
 # 外部克隆的技能参考仓库（内嵌 .git，不入库）
 test/_anthropics-skills/
+
+# 路由教学演示（不属于平台）
+route-demo/
