@@ -102,6 +102,7 @@ class SearchKnowledge(ToolBase):
                     query=str(query), kb_ids=kb_ids, top_k=min(int(top_k or 5), 10)
                 )
                 neighbor_ctx = self._graph_context(db, results, kb_ids)
+                entity_ctx = self._entity_context(db, kb_ids, str(query))
             finally:
                 db.close()
         except Exception as e:
@@ -126,7 +127,33 @@ class SearchKnowledge(ToolBase):
         text = "知识库检索结果：\n\n" + "\n\n".join(lines)
         if neighbor_ctx:
             text += "\n\n【图谱上下文：相关笔记的链接邻居】\n" + neighbor_ctx
+        if entity_ctx:
+            text += "\n\n【实体图谱：查询涉及的实体在其他文档中的出现】\n" + entity_ctx
         return ToolChunk(content=[TextBlock(text=text)])
+
+    def _entity_context(self, db, kb_ids: list[int], query: str) -> str:
+        """实体图谱上下文：查询命中的实体 → 跨文档提及（GraphRAG v2.7）。"""
+        try:
+            from app.services.knowledge.entity_graph import entity_neighbors
+            neighbors = entity_neighbors(db, kb_ids, query)
+            if not neighbors:
+                return ""
+            by_ent: dict[str, list] = {}
+            for n in neighbors:
+                by_ent.setdefault(f"{n['name']}（{n['type']}）", []).append(n)
+            parts = []
+            for ent, ms in list(by_ent.items())[:6]:
+                docs = "、".join(
+                    f"{m['doc_title'] or ('文档#' + str(m['doc_id']))}" for m in ms[:4]
+                )
+                snip = next((m["snippet"] for m in ms if m.get("snippet")), "")
+                line = f"- {ent}：另见于 {docs}"
+                if snip:
+                    line += f"（如：{snip}）"
+                parts.append(line)
+            return "\n".join(parts)
+        except Exception:
+            return ""
 
     def _graph_context(self, db, results, kb_ids: list[int]) -> str:
         """为命中文档拼 1 跳邻居标题（图谱上下文，仅 vault md 有）。"""

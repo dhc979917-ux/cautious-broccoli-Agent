@@ -758,6 +758,18 @@ class KnowledgeService:
                 if progress:
                     progress.report("已完成", 100, f"共 {len(chunks)} 个切片", status="ready")
                 logger.info(f"[知识库] vault 笔记入库完成 doc={doc.id} chunks={len(chunks)}")
+                # 实体抽取（GraphRAG v2.7）：LLM 优先，无网关本地规则；
+                # 失败只告警，绝不影响入库主流程
+                try:
+                    from app.services.knowledge.entity_graph import extract_entities, save_entities
+                    if progress:
+                        progress.report("实体抽取", 95, "抽取领域实体", status="ready")
+                    ents = await extract_entities(full_text)
+                    if ents:
+                        n = save_entities(self.db, doc.kb_id, doc.id, ents)
+                        logger.info(f"[实体图谱] doc={doc.id} 抽取 {len(ents)} 实体，写入 {n} 提及")
+                except Exception as e:
+                    logger.warning(f"[实体图谱] 抽取失败（不影响入库）: {e}")
                 # Auto-link by vector similarity
                 try:
                     import numpy as np2

@@ -686,6 +686,36 @@ async def get_tags(kb_id: int, current_user: User = Depends(get_current_user), d
     return GraphService(db).tags(kb)
 
 
+@router.get("/bases/{kb_id}/entities")
+async def get_entities(kb_id: int, q: Optional[str] = None, limit: int = 50,
+                        current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """实体图谱（GraphRAG v2.7）：该库的领域实体清单 + 每实体提及文档数。"""
+    kb = _get_kb_or_404(db, kb_id)
+    if not _can_view(kb, current_user):
+        raise HTTPException(status_code=403, detail="无权访问该知识库")
+    from sqlalchemy import text as _text
+    try:
+        sql = (
+            "SELECT e.name, e.type, e.mention_count, "
+            "count(m.id) as doc_count FROM knowledge_entities e "
+            "LEFT JOIN entity_mentions m ON m.entity_id = e.id "
+            "WHERE e.kb_id = :kb "
+        )
+        params: dict = {"kb": kb_id}
+        if q:
+            sql += " AND e.name LIKE :q "
+            params["q"] = f"%{q}%"
+        sql += " GROUP BY e.id ORDER BY doc_count DESC, e.mention_count DESC LIMIT :lim"
+        params["lim"] = min(int(limit or 50), 200)
+        rows = db.execute(_text(sql), params).fetchall()
+        return [{"name": r[0], "type": r[1], "mention_count": r[2], "doc_count": r[3]}
+                for r in rows]
+    except Exception as e:
+        # 表未建（尚无文档走过实体抽取）时返回空
+        logger.info(f"[实体API] 无实体数据（可能未建表）: {e}")
+        return []
+
+
 # ===== 单文档 =====
 @router.get("/docs/{doc_id}")
 async def get_doc(doc_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
